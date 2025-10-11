@@ -28,7 +28,30 @@ if(APPLE)
     endforeach()
   endif()
 
-  add_subdirectory(metal-engine/third_party)
+  add_library(imgui STATIC
+    third_party/imgui/imgui.cpp
+    third_party/imgui/imgui_demo.cpp
+    third_party/imgui/imgui_draw.cpp
+    third_party/imgui/imgui_tables.cpp
+    third_party/imgui/imgui_widgets.cpp
+    third_party/imgui/imgui_impl_sdl2.cpp
+    third_party/imgui/imgui_impl_metal.mm
+  )
+
+  target_include_directories(imgui PUBLIC
+    third_party/imgui
+  )
+
+  target_link_libraries(imgui PUBLIC
+    SDL2::SDL2
+    "-framework Metal"
+    "-framework MetalKit"
+  )
+
+  target_compile_options(imgui PRIVATE
+    $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-weak>
+    $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>
+  )
 
   add_executable(metal_engine
     metal-engine/metal_engine.mm
