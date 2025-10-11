@@ -24,6 +24,7 @@ void ImGuiRenderer::initialize()
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImPlot::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
@@ -67,8 +68,11 @@ void ImGuiRenderer::beginFrame()
 void ImGuiRenderer::businessLogic(FrameState& state)
 {
     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-    if (state.show_demo_window)
+    if (state.show_demo_window){
         ImGui::ShowDemoWindow(&state.show_demo_window);
+        ImPlot::ShowDemoWindow(&state.show_demo_window);
+    }
+        
 
     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
     {
@@ -139,5 +143,6 @@ void ImGuiRenderer::shutdown()
 
     backend_.shutdownBackend();
     ImGui::DestroyContext();
+    ImPlot::DestroyContext();
     initialized_ = false;
 }

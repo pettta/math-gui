@@ -51,4 +51,16 @@ set_property(TARGET imgui PROPERTY CXX_STANDARD 20)
 
 target_link_libraries(imgui PUBLIC Vulkan::Vulkan SDL2::SDL2)
 
+add_library(implot STATIC)
+
+target_include_directories(implot PUBLIC implot)
+
+target_sources(implot PRIVATE
+  implot/implot.cpp
+  implot/implot_items.cpp
+  implot/implot_demo.cpp
+)
+
+target_link_libraries(implot PUBLIC imgui)
+
 target_include_directories(stb_image INTERFACE stb_image)

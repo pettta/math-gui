@@ -3,6 +3,7 @@
 #include <functional>
 
 #include "imgui.h"
+#include "implot.h"
 
 class ImGuiBackend {
 public:

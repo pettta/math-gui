@@ -53,6 +53,20 @@ if(APPLE)
     $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>
   )
 
+  add_library(implot STATIC
+    third_party/implot/implot.cpp
+    third_party/implot/implot_demo.cpp
+    third_party/implot/implot_items.cpp
+  )
+
+  target_include_directories(implot PUBLIC
+    third_party/implot
+  )
+
+  target_link_libraries(implot PUBLIC
+    imgui
+  )
+
   add_executable(metal_engine
     metal-engine/metal_engine.mm
     frontend/imgui-renderer.cpp
@@ -60,7 +74,7 @@ if(APPLE)
   )
 
   target_link_libraries(metal_engine PRIVATE
-    imgui
+    implot
   )
 
   if(TARGET SDL2::SDL2)
