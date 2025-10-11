@@ -6,7 +6,9 @@
 #include "implot.h"
 #include "implot3d.h" 
 
-#include "Eigen/Dense"
+#include <Eigen/Dense> 
+#include <boost/math/distributions.hpp>
+#include <boost/random.hpp>
 
 class ImGuiBackend {
 public:

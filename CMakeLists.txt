@@ -5,6 +5,9 @@ cmake_minimum_required(VERSION 3.20)
 
 project("vulkan_guide")
 
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+include(cmake/BoostExternal.cmake)
+
 if(APPLE)
   enable_language(OBJCXX)
 
@@ -97,6 +100,10 @@ if(APPLE)
   target_link_libraries(metal_engine PRIVATE
     implot3d
     eigen
+    Boost::filesystem
+    Boost::system
+    Boost::random
+    Boost::headers
   )
 
   if(TARGET SDL2::SDL2)

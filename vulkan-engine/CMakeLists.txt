@@ -17,6 +17,10 @@ vkguide_shared
 vkbootstrap 
 implot3d
 eigen
+Boost::filesystem
+Boost::system
+Boost::random
+Boost::headers
 )
 
 add_custom_command(TARGET vulkan_engine POST_BUILD
