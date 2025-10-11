@@ -75,6 +75,11 @@ const std::unordered_map<std::string, DistributionDefinition> kDistributions = {
     }
 };
 
+std::unordered_map<std::string, std::vector<float>> gDistributionParameters = {
+    {"normal distribution", kDistributions.at("normal distribution").parameters},
+    {"lognormal distribution", kDistributions.at("lognormal distribution").parameters}
+};
+
 } // namespace
 
 void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
@@ -117,11 +122,33 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
     static bool should_render = false;
     ImGui::Checkbox("Render PDF/PMF", &should_render);
 
+    const auto* distribution_name = kDistributionNames[item_selected_idx];
+    const auto& definition = kDistributions.at(distribution_name);
+    auto& parameter_values = gDistributionParameters.at(distribution_name);
+
+    for (std::size_t idx = 0; idx < parameter_values.size(); ++idx)
+    {
+        const auto& bounds = definition.parameterDomains[idx];
+        const float min_bound = bounds[0];
+        const float max_bound = bounds[1];
+
+        std::string label = std::string("Parameter ") + std::to_string(idx + 1);
+        const char* label_cstr = label.c_str();
+        float step = std::max((max_bound - min_bound) * 0.01f, 0.001f);
+        if (!std::isfinite(step) || step <= 0.0f)
+        {
+            step = 0.1f;
+        }
+
+        if (ImGui::DragFloat(label_cstr, &parameter_values[idx], step, min_bound, max_bound))
+        {
+            parameter_values[idx] = std::clamp(parameter_values[idx], min_bound, max_bound);
+        }
+    }
+
     if (should_render)
     {
-        const auto* distribution_name = kDistributionNames[item_selected_idx];
-        const auto& definition = kDistributions.at(distribution_name);
-        const auto distribution = definition.factory(definition.parameters);
+        const auto distribution = definition.factory(parameter_values);
 
         static float xs1[1001];
         static float ys1[1001];
