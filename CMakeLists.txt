@@ -8,7 +8,7 @@ project("vulkan_guide")
 if(APPLE)
   enable_language(OBJCXX)
 
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 17)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -82,6 +82,12 @@ if(APPLE)
     implot
   )
 
+  add_library(eigen INTERFACE)
+
+  target_include_directories(eigen INTERFACE
+    third_party/eigen
+  )
+
   add_executable(metal_engine
     metal-engine/metal_engine.mm
     frontend/imgui-renderer.cpp
@@ -90,6 +96,7 @@ if(APPLE)
 
   target_link_libraries(metal_engine PRIVATE
     implot3d
+    eigen
   )
 
   if(TARGET SDL2::SDL2)

@@ -21,14 +21,11 @@ set_property(TARGET vkbootstrap PROPERTY CXX_STANDARD 20)
 
 #both vma and glm and header only libs so we only need the include path
 target_include_directories(vma INTERFACE vma)
-
 target_include_directories(glm INTERFACE glm)
 
 #add_library(sdl2 INTERFACE)
-
 #target_include_directories(sdl2 INTERFACE $ENV{VULKAN_SDK}/Include/SDL2 )
 #target_link_directories(sdl2 INTERFACE $ENV{VULKAN_SDK}/Lib )
-
 #target_link_libraries(sdl2 INTERFACE SDL2 SDL2main)
 
 add_library(imgui STATIC)
@@ -40,18 +37,6 @@ target_sources(imgui PRIVATE
   imgui/imgui_demo.cpp
   imgui/imgui_draw.cpp
   imgui/imgui_widgets.cpp
-
-
-add_library(implot3d STATIC)
-target_include_directories(implot3d PUBLIC implot3d)
-target_sources(implot3d PRIVATE
-  implot3d/implot3d.cpp
-  implot3d/implot3d_items.cpp
-  implot3d/implot3d_demo.cpp
-  implot3d/implot3d_meshes.cpp
-)
-target_link_libraries(implot3d PUBLIC implot)
-
   imgui/imgui_tables.cpp
   imgui/imgui_impl_vulkan.cpp
   imgui/imgui_impl_sdl2.cpp
@@ -68,8 +53,17 @@ target_sources(implot PRIVATE
 )
 target_link_libraries(implot PUBLIC imgui)
 
+add_library(implot3d STATIC)
+target_include_directories(implot3d PUBLIC implot3d)
+target_sources(implot3d PRIVATE
+  implot3d/implot3d.cpp
+  implot3d/implot3d_items.cpp
+  implot3d/implot3d_demo.cpp
+  implot3d/implot3d_meshes.cpp
+)
+target_link_libraries(implot3d PUBLIC implot)
 
-
-
+add_library(eigen INTERFACE)
+target_include_directories(eigen INTERFACE eigen)
 
 target_include_directories(stb_image INTERFACE stb_image)
