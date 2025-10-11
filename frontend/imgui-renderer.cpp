@@ -192,25 +192,41 @@ void ImGuiRenderer::businessLogic(FrameState& state)
             ImGui::EndCombo();
         }
 
-        const auto* distribution_name = kDistributionNames[item_selected_idx];
-        const auto& definition = kDistributions.at(distribution_name);
-        const auto distribution = definition.factory(definition.parameters);
+        static bool should_render = false;
+        ImGui::Checkbox("Render PDF/PMF", &should_render);
 
-        static float xs1[1001];
-        static float ys1[1001];
-        constexpr int sample_count = static_cast<int>(std::size(xs1));
-        const float domain_start = definition.domain[0];
-        const float domain_end = definition.domain[1];
-        const float domain_range = domain_end - domain_start;
-        const float domain_step = sample_count > 1 ? domain_range / static_cast<float>(sample_count - 1) : 0.0f;
+        if (should_render) {
+            const auto* distribution_name = kDistributionNames[item_selected_idx];
+            const auto& definition = kDistributions.at(distribution_name);
+            const auto distribution = definition.factory(definition.parameters);
 
-        for (int i = 0; i < sample_count; ++i) {
+            static float xs1[1001];
+            static float ys1[1001];
+            constexpr int sample_count = static_cast<int>(std::size(xs1));
+            const float domain_start = definition.domain[0];
+            const float domain_end = definition.domain[1];
+            const float domain_range = domain_end - domain_start;
+            const float domain_step = sample_count > 1 ? domain_range / static_cast<float>(sample_count - 1) : 0.0f;
+
+            for (int i = 0; i < sample_count; ++i) {
             const float x = domain_start + domain_step * static_cast<float>(i);
             xs1[i] = x;
             ys1[i] = definition.type == DistributionType::Continuous
-                          ? std::visit([x](const auto& dist) { return static_cast<float>(boost::math::pdf(dist, x)); }, distribution)
-                          : 0.0f;
+                     ? std::visit([x](const auto& dist) { return static_cast<float>(boost::math::pdf(dist, x)); }, distribution)
+                     : 0.0f;
+            }
+
+            constexpr float y_min = 0.0f;
+            constexpr float y_max = 2.0f;
+            ImPlot::SetNextAxesLimits(domain_start, domain_end, y_min, y_max, ImPlotCond_Once);
+            if (ImPlot::BeginPlot("Line Plots")) {
+            definition.type == DistributionType::Continuous
+                ? ImPlot::PlotLine("PDF", xs1, ys1, sample_count)
+                : ImPlot::PlotStairs("PMF", xs1, ys1, sample_count);
+            ImPlot::EndPlot();
+            }
         }
+        
         
         ImGui::Text("Hello from probability window!");
         if (ImGui::Button("Close Me"))
