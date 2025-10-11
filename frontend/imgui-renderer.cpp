@@ -25,6 +25,7 @@ void ImGuiRenderer::initialize()
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImPlot::CreateContext();
+    ImPlot3D::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
@@ -71,6 +72,7 @@ void ImGuiRenderer::businessLogic(FrameState& state)
     if (state.show_demo_window){
         ImGui::ShowDemoWindow(&state.show_demo_window);
         ImPlot::ShowDemoWindow(&state.show_demo_window);
+        ImPlot3D::ShowDemoWindow(&state.show_demo_window);
     }
         
 
@@ -79,16 +81,16 @@ void ImGuiRenderer::businessLogic(FrameState& state)
         static float f = 0.0f;
         static int counter = 0;
 
-        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+        ImGui::Begin("Hello, world!");                                // Create a window called "Hello, world!" and append into it.
 
-        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-    ImGui::Checkbox("Demo Window", &state.show_demo_window);      // Edit bools storing our window open/close state
-    ImGui::Checkbox("Another Window", &state.show_another_window);
+        ImGui::Text("This is some useful text.");                     // Display some text (you can use a format strings too)
+        ImGui::Checkbox("Demo Window", &state.show_demo_window);      // Edit bools storing our window open/close state
+        ImGui::Checkbox("Another Window", &state.show_another_window);
 
-    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-    ImGui::ColorEdit3("clear color", state.clear_color); // Edit 3 floats representing a color
+        ImGui::SliderFloat("float", &f, 0.0f, 1.0f);                  // Edit 1 float using a slider from 0.0f to 1.0f
+        ImGui::ColorEdit3("clear color", state.clear_color);          // Edit 3 floats representing a color
 
-        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+        if (ImGui::Button("Button"))                                  // Buttons return true when clicked (most widgets return true when edited/activated)
             counter++;
         ImGui::SameLine();
         ImGui::Text("counter = %d", counter);
@@ -144,5 +146,6 @@ void ImGuiRenderer::shutdown()
     backend_.shutdownBackend();
     ImGui::DestroyContext();
     ImPlot::DestroyContext();
+    ImPlot3D::DestroyContext();
     initialized_ = false;
 }

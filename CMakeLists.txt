@@ -67,6 +67,21 @@ if(APPLE)
     imgui
   )
 
+  add_library(implot3d STATIC
+    third_party/implot3d/implot3d.cpp
+    third_party/implot3d/implot3d_items.cpp
+    third_party/implot3d/implot3d_demo.cpp
+    third_party/implot3d/implot3d_meshes.cpp
+  )
+
+  target_include_directories(implot3d PUBLIC
+    third_party/implot3d
+  )
+
+  target_link_libraries(implot3d PUBLIC
+    implot
+  )
+
   add_executable(metal_engine
     metal-engine/metal_engine.mm
     frontend/imgui-renderer.cpp
@@ -74,7 +89,7 @@ if(APPLE)
   )
 
   target_link_libraries(metal_engine PRIVATE
-    implot
+    implot3d
   )
 
   if(TARGET SDL2::SDL2)

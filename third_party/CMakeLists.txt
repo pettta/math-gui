@@ -32,9 +32,7 @@ target_include_directories(glm INTERFACE glm)
 #target_link_libraries(sdl2 INTERFACE SDL2 SDL2main)
 
 add_library(imgui STATIC)
-
 target_include_directories(imgui PUBLIC imgui)
-
 target_sources(imgui PRIVATE 
   imgui/imgui.h
   imgui/imgui.cpp
@@ -42,25 +40,36 @@ target_sources(imgui PRIVATE
   imgui/imgui_demo.cpp
   imgui/imgui_draw.cpp
   imgui/imgui_widgets.cpp
+
+
+add_library(implot3d STATIC)
+target_include_directories(implot3d PUBLIC implot3d)
+target_sources(implot3d PRIVATE
+  implot3d/implot3d.cpp
+  implot3d/implot3d_items.cpp
+  implot3d/implot3d_demo.cpp
+  implot3d/implot3d_meshes.cpp
+)
+target_link_libraries(implot3d PUBLIC implot)
+
   imgui/imgui_tables.cpp
   imgui/imgui_impl_vulkan.cpp
   imgui/imgui_impl_sdl2.cpp
   )
-
 set_property(TARGET imgui PROPERTY CXX_STANDARD 20)
-
 target_link_libraries(imgui PUBLIC Vulkan::Vulkan SDL2::SDL2)
 
 add_library(implot STATIC)
-
 target_include_directories(implot PUBLIC implot)
-
 target_sources(implot PRIVATE
   implot/implot.cpp
   implot/implot_items.cpp
   implot/implot_demo.cpp
 )
-
 target_link_libraries(implot PUBLIC imgui)
+
+
+
+
 
 target_include_directories(stb_image INTERFACE stb_image)

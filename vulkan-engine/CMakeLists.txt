@@ -12,7 +12,7 @@ set_property(TARGET vulkan_engine PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGE
 target_include_directories(vulkan_engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 
-target_link_libraries(vulkan_engine vkguide_shared vkbootstrap imgui)
+target_link_libraries(vulkan_engine vkguide_shared vkbootstrap implot3d)
 
 add_custom_command(TARGET vulkan_engine POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:vulkan_engine> $<TARGET_FILE_DIR:vulkan_engine>
