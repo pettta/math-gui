@@ -94,6 +94,7 @@ if(APPLE)
   add_executable(metal_engine
     metal-engine/metal_engine.mm
     frontend/imgui-renderer.cpp
+    frontend/plugins/probability-plugin.cpp
     frontend/metal_imgui_backend.mm
   )
 
