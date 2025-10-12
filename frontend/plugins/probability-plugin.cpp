@@ -11,6 +11,7 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include <optional>
 
 
 
@@ -49,6 +50,35 @@ using PdfFunction = std::function<float(float)>;
 using PdfFactory = std::function<PdfFunction(const std::vector<float>&)>;
 using CdfFunction = std::function<float(float)>;
 using CdfFactory = std::function<CdfFunction(const std::vector<float>&)>;
+using StatisticValue = std::optional<float>;
+using StatisticFactory = std::function<StatisticValue(const std::vector<float>&)>;
+
+struct StatisticDefinition
+{
+    std::string label;
+    std::string formula;
+    StatisticFactory compute;
+};
+
+template <typename Func>
+StatisticValue EvaluateStatistic(Func&& func)
+{
+    try
+    {
+        const double value = func();
+        if (std::isfinite(value))
+        {
+            return static_cast<float>(value);
+        }
+    }
+    catch (const std::exception&)
+    {
+    }
+    catch (...)
+    {
+    }
+    return std::nullopt;
+}
 
 struct DistributionDefinition
 {
@@ -63,6 +93,7 @@ struct DistributionDefinition
     PdfFactory makePdf;
     std::vector<bool> parameterIsIntegral;
     CdfFactory makeCdf;
+    std::vector<StatisticDefinition> statistics;
 };
 
 struct DistributionEntry
@@ -99,6 +130,36 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, x));
                 };
+            },
+            {
+                {
+                    "Expected value",
+                    (const char*)u8"E[X] = μ",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float mean = params.size() > 0 ? params[0] : 0.0f;
+                        return StatisticValue(mean);
+                    }
+                },
+                {
+                    "Variance",
+                    (const char*)u8"Var(X) = σ²",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float stddev = params.size() > 1 ? std::max(params[1], 1e-6f) : 1.0f;
+                        return StatisticValue(stddev * stddev);
+                    }
+                },
+                {
+                    "Kurtosis",
+                    (const char*)u8"κ = 3",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float mean = params.size() > 0 ? params[0] : 0.0f;
+                        const float stddev = params.size() > 1 ? std::max(params[1], 1e-6f) : 1.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            const boost::math::normal_distribution<double> distribution(mean, stddev);
+                            return boost::math::kurtosis(distribution);
+                        });
+                    }
+                }
             }
         }
     },
@@ -129,6 +190,46 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, x));
                 };
+            },
+            {
+                {
+                    "Expected value",
+                    (const char*)u8"E[X] = e^{μ + σ² / 2}",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float location = params.size() > 0 ? params[0] : 0.0f;
+                        const float scale = params.size() > 1 ? std::max(params[1], 1e-6f) : 0.25f;
+                        return EvaluateStatistic([&]() -> double {
+                            return std::exp(location + (scale * scale) / 2.0);
+                        });
+                    }
+                },
+                {
+                    "Variance",
+                    (const char*)u8"Var(X) = (e^{σ²} - 1) e^{2μ + σ²}",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float location = params.size() > 0 ? params[0] : 0.0f;
+                        const float scale = params.size() > 1 ? std::max(params[1], 1e-6f) : 0.25f;
+                        return EvaluateStatistic([&]() -> double {
+                            const double sigma_sq = static_cast<double>(scale) * static_cast<double>(scale);
+                            const double exp_sigma_sq = std::exp(sigma_sq);
+                            return (exp_sigma_sq - 1.0) * std::exp(2.0 * location + sigma_sq);
+                        });
+                    }
+                },
+                {
+                    "Kurtosis",
+                    (const char*)u8"κ = e^{4σ²} + 2 e^{3σ²} + 3 e^{2σ²} - 3",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float scale = params.size() > 1 ? std::max(params[1], 1e-6f) : 0.25f;
+                        return EvaluateStatistic([&]() -> double {
+                            const double sigma_sq = static_cast<double>(scale) * static_cast<double>(scale);
+                            const double e2 = std::exp(2.0 * sigma_sq);
+                            const double e3 = std::exp(3.0 * sigma_sq);
+                            const double e4 = std::exp(4.0 * sigma_sq);
+                            return e4 + 2.0 * e3 + 3.0 * e2 - 3.0;
+                        });
+                    }
+                }
             }
         }
     },
@@ -159,6 +260,50 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, x));
                 };
+            },
+            {
+                {
+                    "Expected value",
+                    (const char*)u8"E[X] = α / (α + β)",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float alpha = params.size() > 0 ? std::max(params[0], 1e-6f) : 2.0f;
+                        const float beta = params.size() > 1 ? std::max(params[1], 1e-6f) : 5.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            return static_cast<double>(alpha) / (static_cast<double>(alpha) + static_cast<double>(beta));
+                        });
+                    }
+                },
+                {
+                    "Variance",
+                    (const char*)u8"Var(X) = αβ / ((α + β)^2 (α + β + 1))",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float alpha = params.size() > 0 ? std::max(params[0], 1e-6f) : 2.0f;
+                        const float beta = params.size() > 1 ? std::max(params[1], 1e-6f) : 5.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            const double a = alpha;
+                            const double b = beta;
+                            const double sum = a + b;
+                            return (a * b) / (sum * sum * (sum + 1.0));
+                        });
+                    }
+                },
+                {
+                    "Kurtosis",
+                    (const char*)u8"κ = 3 + 6[(α - β)^2 (α + β + 1) - αβ(α + β + 2)] / [αβ(α + β + 2)(α + β + 3)]",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float alpha = params.size() > 0 ? std::max(params[0], 1e-6f) : 2.0f;
+                        const float beta = params.size() > 1 ? std::max(params[1], 1e-6f) : 5.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            const double a = alpha;
+                            const double b = beta;
+                            const double sum = a + b;
+                            const double ab = a * b;
+                            const double numerator = 6.0 * ((a - b) * (a - b) * (sum + 1.0) - ab * (sum + 2.0));
+                            const double denominator = ab * (sum + 2.0) * (sum + 3.0);
+                            return 3.0 + numerator / denominator;
+                        });
+                    }
+                }
             }
         }
     },
@@ -187,6 +332,40 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, x));
                 };
+            },
+            {
+                {
+                    "Expected value",
+                    (const char*)u8"E[X] = 1 / λ",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float lambda = params.size() > 0 ? std::max(params[0], 1e-6f) : 1.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            return 1.0 / static_cast<double>(lambda);
+                        });
+                    }
+                },
+                {
+                    "Variance",
+                    (const char*)u8"Var(X) = 1 / λ²",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float lambda = params.size() > 0 ? std::max(params[0], 1e-6f) : 1.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            const double l = lambda;
+                            return 1.0 / (l * l);
+                        });
+                    }
+                },
+                {
+                    "Kurtosis",
+                    (const char*)u8"κ = 9",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float lambda = params.size() > 0 ? std::max(params[0], 1e-6f) : 1.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            const boost::math::exponential_distribution<double> distribution(lambda);
+                            return boost::math::kurtosis(distribution);
+                        });
+                    }
+                }
             }
         }
     },
@@ -217,6 +396,43 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
                 };
+            },
+            {
+                {
+                    "Expected value",
+                    "E[X] = n p",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float trials_value = params.size() > 0 ? std::max(params[0], 1e-6f) : 10.0f;
+                        const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                        return StatisticValue(trials_value * p);
+                    }
+                },
+                {
+                    "Variance",
+                    "Var(X) = n p (1 - p)",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float trials_value = params.size() > 0 ? std::max(params[0], 1e-6f) : 10.0f;
+                        const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                        return StatisticValue(trials_value * p * (1.0f - p));
+                    }
+                },
+                {
+                    "Kurtosis",
+                    "κ = 3 + (1 - 6p(1 - p)) / (n p (1 - p))",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float trials_value = params.size() > 0 ? std::max(params[0], 1e-6f) : 10.0f;
+                        const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                        const double variance_component = static_cast<double>(trials_value) * p * (1.0 - p);
+                        if (variance_component <= 0.0)
+                        {
+                            return std::nullopt;
+                        }
+                        return EvaluateStatistic([&]() -> double {
+                            const double numerator = 1.0 - 6.0 * p * (1.0 - p);
+                            return 3.0 + numerator / variance_component;
+                        });
+                    }
+                }
             }
         }
     },
@@ -251,6 +467,50 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, std::round(std::clamp(x, 0.0f, static_cast<float>(distribution.trials())))));
                 };
+            },
+            {
+                {
+                    "Expected value",
+                    (const char*)u8"E[X] = n α / (α + β)",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float trials_value = params.size() > 0 ? std::max(params[0], 1.0f) : 10.0f;
+                        const float alpha = params.size() > 1 ? std::max(params[1], 1e-5f) : 2.0f;
+                        const float beta = params.size() > 2 ? std::max(params[2], 1e-5f) : 5.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            return static_cast<double>(trials_value) * alpha / (alpha + beta);
+                        });
+                    }
+                },
+                {
+                    "Variance",
+                    (const char*)u8"Var(X) = n α β (α + β + n) / ((α + β)^2 (α + β + 1))",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float trials_value = params.size() > 0 ? std::max(params[0], 1.0f) : 10.0f;
+                        const float alpha = params.size() > 1 ? std::max(params[1], 1e-5f) : 2.0f;
+                        const float beta = params.size() > 2 ? std::max(params[2], 1e-5f) : 5.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            const double n = trials_value;
+                            const double a = alpha;
+                            const double b = beta;
+                            const double sum = a + b;
+                            return n * a * b * (sum + n) / (sum * sum * (sum + 1.0));
+                        });
+                    }
+                },
+                {
+                    "Kurtosis",
+                    (const char*)u8"κ = kurtosis(BetaBin(n, α, β))",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float trials_value = params.size() > 0 ? std::max(params[0], 1.0f) : 10.0f;
+                        const int trials = static_cast<int>(std::round(trials_value));
+                        const float alpha = params.size() > 1 ? std::max(params[1], 1e-5f) : 2.0f;
+                        const float beta = params.size() > 2 ? std::max(params[2], 1e-5f) : 5.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            const boost::math::beta_binomial_distribution<double> distribution(trials, alpha, beta);
+                            return boost::math::kurtosis(distribution);
+                        });
+                    }
+                }
             }
         }
     },
@@ -281,6 +541,44 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
                 };
+            },
+            {
+                {
+                    "Expected value",
+                    (const char*)u8"E[X] = r(1 - p) / p",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const int r = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
+                        const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                        return EvaluateStatistic([&]() -> double {
+                            const boost::math::negative_binomial_distribution<double> distribution(r, p);
+                            return boost::math::mean(distribution);
+                        });
+                    }
+                },
+                {
+                    "Variance",
+                    (const char*)u8"Var(X) = r(1 - p) / p²",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const int r = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
+                        const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                        return EvaluateStatistic([&]() -> double {
+                            const boost::math::negative_binomial_distribution<double> distribution(r, p);
+                            return boost::math::variance(distribution);
+                        });
+                    }
+                },
+                {
+                    "Kurtosis",
+                    (const char*)u8"κ = kurtosis(NB(r, p))",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const int r = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
+                        const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                        return EvaluateStatistic([&]() -> double {
+                            const boost::math::negative_binomial_distribution<double> distribution(r, p);
+                            return boost::math::kurtosis(distribution);
+                        });
+                    }
+                }
             }
         }
     },
@@ -309,6 +607,35 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
                 };
+            },
+            {
+                {
+                    "Expected value",
+                    "E[X] = λ",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float lambda = params.size() > 0 ? std::max(params[0], 1e-6f) : 10.0f;
+                        return StatisticValue(lambda);
+                    }
+                },
+                {
+                    "Variance",
+                    "Var(X) = λ",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float lambda = params.size() > 0 ? std::max(params[0], 1e-6f) : 10.0f;
+                        return StatisticValue(lambda);
+                    }
+                },
+                {
+                    "Kurtosis",
+                    (const char*)u8"κ = 3 + 1 / λ",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float lambda = params.size() > 0 ? std::max(params[0], 1e-6f) : 10.0f;
+                        return EvaluateStatistic([&]() -> double {
+                            const boost::math::poisson_distribution<double> distribution(lambda);
+                            return boost::math::kurtosis(distribution);
+                        });
+                    }
+                }
             }
         }
     },
@@ -447,6 +774,40 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
         }
 
         ImGui::EndTable();
+    }
+
+    if (!definition.statistics.empty())
+    {
+        if (ImGui::BeginTable("DistributionStatsTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_BordersOuter))
+        {
+            ImGui::TableSetupColumn("Statistic", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+            ImGui::TableSetupColumn("Formula", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+            ImGui::TableHeadersRow();
+
+            for (const auto& statistic : definition.statistics)
+            {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(statistic.label.c_str());
+
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextWrapped("%s", statistic.formula.c_str());
+
+                ImGui::TableSetColumnIndex(2);
+                const StatisticValue value = statistic.compute(parameter_values);
+                if (value.has_value() && std::isfinite(value.value()))
+                {
+                    ImGui::Text("%.6g", value.value());
+                }
+                else
+                {
+                    ImGui::TextUnformatted("Undefined");
+                }
+            }
+
+            ImGui::EndTable();
+        }
     }
 
     if (should_render)
