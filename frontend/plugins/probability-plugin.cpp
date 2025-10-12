@@ -159,7 +159,7 @@ const std::vector<DistributionEntry> kDistributions = {
                 },
                 {
                     "Variance",
-                    (const char*)u8"Var(X) = σ²",
+                    (const char*)u8"Var(X) = σ^2",
                     [](const std::vector<float>& params) -> StatisticValue {
                         const float stddev = params.size() > 1 ? std::max(params[1], 1e-6f) : 1.0f;
                         return StatisticValue(stddev * stddev);
@@ -231,7 +231,7 @@ const std::vector<DistributionEntry> kDistributions = {
                 },
                 {
                     "Variance",
-                    (const char*)u8"Var(X) = (e^{σ²} - 1) e^{2μ + σ²}",
+                    (const char*)u8"Var(X) = (e^{σ^2} - 1) e^{2μ + σ²}",
                     [](const std::vector<float>& params) -> StatisticValue {
                         const float location = params.size() > 0 ? params[0] : 0.0f;
                         const float scale = params.size() > 1 ? std::max(params[1], 1e-6f) : 0.25f;
@@ -244,7 +244,7 @@ const std::vector<DistributionEntry> kDistributions = {
                 },
                 {
                     "Kurtosis",
-                    (const char*)u8"κ = e^{4σ²} + 2 e^{3σ²} + 3 e^{2σ²} - 3",
+                    (const char*)u8"κ = e^{4σ^2} + 2 e^{3σ^2} + 3 e^{2σ^2} - 3",
                     [](const std::vector<float>& params) -> StatisticValue {
                         const float scale = params.size() > 1 ? std::max(params[1], 1e-6f) : 0.25f;
                         return EvaluateStatistic([&]() -> double {
@@ -1064,10 +1064,13 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
 
             if (!sampled_x_values.empty())
             {
-                ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
-                ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f);
+                const ImVec4 sample_color(1.0f, 1.0f, 0.0f, 1.0f);
+                ImPlot::PushStyleColor(ImPlotCol_Line, sample_color);
+                ImPlot::PushStyleColor(ImPlotCol_MarkerFill, sample_color);
+                ImPlot::PushStyleColor(ImPlotCol_MarkerOutline, sample_color);
+                ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f, sample_color, 1.0f, sample_color);
                 ImPlot::PlotScatter("Samples", sampled_x_values.data(), sampled_y_values.data(), static_cast<int>(sampled_x_values.size()));
-                ImPlot::PopStyleColor();
+                ImPlot::PopStyleColor(3);
             }
 
             ImPlot::PopStyleColor();
