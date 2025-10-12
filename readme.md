@@ -9,3 +9,8 @@ https://vulkan.lunarg.com/sdk/home
 ## Mac 
 https://brew.sh/
 - via brew: clang++, cmake>=3.21, make
+
+
+# Plugins 
+## Probability 
+- took a lot of reference from  https://www.acsu.buffalo.edu/~adamcunn/probability/binomial.html

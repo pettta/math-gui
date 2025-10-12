@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <random> 
 
 
 
@@ -40,6 +41,10 @@ namespace math_gui::plugins
 {
 namespace
 {
+std::random_device rd; 
+std::mt19937 gen(rd()); 
+
+
 enum class DistributionType
 {
     Continuous,
@@ -50,6 +55,8 @@ using PdfFunction = std::function<float(float)>;
 using PdfFactory = std::function<PdfFunction(const std::vector<float>&)>;
 using CdfFunction = std::function<float(float)>;
 using CdfFactory = std::function<CdfFunction(const std::vector<float>&)>;
+using PpfFunction = std::function<float(float)>;
+using PpfFactory = std::function<PpfFunction(const std::vector<float>&)>;
 using StatisticValue = std::optional<float>;
 using StatisticFactory = std::function<StatisticValue(const std::vector<float>&)>;
 
@@ -93,6 +100,7 @@ struct DistributionDefinition
     PdfFactory makePdf;
     std::vector<bool> parameterIsIntegral;
     CdfFactory makeCdf;
+    PpfFactory makePpf;
     std::vector<StatisticDefinition> statistics;
 };
 
@@ -129,6 +137,15 @@ const std::vector<DistributionEntry> kDistributions = {
                 const boost::math::normal_distribution<float> distribution(mean, stddev);
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, x));
+                };
+            },
+            [](const std::vector<float>& params) -> PpfFunction {
+                const float mean = params.size() > 0 ? params[0] : 0.0f;
+                const float stddev = params.size() > 1 ? std::max(params[1], 1e-6f) : 1.0f;
+                const boost::math::normal_distribution<float> distribution(mean, stddev);
+                return [distribution](float probability) -> float {
+                    const float clamped = std::clamp(probability, std::numeric_limits<float>::min(), 1.0f - std::numeric_limits<float>::epsilon());
+                    return static_cast<float>(boost::math::quantile(distribution, clamped));
                 };
             },
             {
@@ -189,6 +206,15 @@ const std::vector<DistributionEntry> kDistributions = {
                 const boost::math::lognormal_distribution<float> distribution(location, scale);
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, x));
+                };
+            },
+            [](const std::vector<float>& params) -> PpfFunction {
+                const float location = params.size() > 0 ? params[0] : 0.0f;
+                const float scale = params.size() > 1 ? std::max(params[1], 1e-6f) : 0.25f;
+                const boost::math::lognormal_distribution<float> distribution(location, scale);
+                return [distribution](float probability) -> float {
+                    const float clamped = std::clamp(probability, std::numeric_limits<float>::min(), 1.0f - std::numeric_limits<float>::epsilon());
+                    return static_cast<float>(boost::math::quantile(distribution, clamped));
                 };
             },
             {
@@ -259,6 +285,15 @@ const std::vector<DistributionEntry> kDistributions = {
                 const boost::math::beta_distribution<float> distribution(alpha, beta);
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, x));
+                };
+            },
+            [](const std::vector<float>& params) -> PpfFunction {
+                const float alpha = params.size() > 0 ? std::max(params[0], 1e-6f) : 2.0f;
+                const float beta = params.size() > 1 ? std::max(params[1], 1e-6f) : 5.0f;
+                const boost::math::beta_distribution<float> distribution(alpha, beta);
+                return [distribution](float probability) -> float {
+                    const float clamped = std::clamp(probability, std::numeric_limits<float>::min(), 1.0f - std::numeric_limits<float>::epsilon());
+                    return static_cast<float>(boost::math::quantile(distribution, clamped));
                 };
             },
             {
@@ -333,6 +368,14 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::cdf(distribution, x));
                 };
             },
+            [](const std::vector<float>& params) -> PpfFunction {
+                const float lambda = params.size() > 0 ? std::max(params[0], 1e-6f) : 1.0f;
+                const boost::math::exponential_distribution<float> distribution(lambda);
+                return [distribution](float probability) -> float {
+                    const float clamped = std::clamp(probability, std::numeric_limits<float>::min(), 1.0f - std::numeric_limits<float>::epsilon());
+                    return static_cast<float>(boost::math::quantile(distribution, clamped));
+                };
+            },
             {
                 {
                     "Expected value",
@@ -395,6 +438,15 @@ const std::vector<DistributionEntry> kDistributions = {
                 const boost::math::binomial_distribution<float> distribution(trials, p);
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
+                };
+            },
+            [](const std::vector<float>& params) -> PpfFunction {
+                const int trials = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
+                const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                const boost::math::binomial_distribution<float> distribution(trials, p);
+                return [distribution](float probability) -> float {
+                    const float clamped = std::clamp(probability, std::numeric_limits<float>::min(), 1.0f - std::numeric_limits<float>::epsilon());
+                    return static_cast<float>(boost::math::quantile(distribution, clamped));
                 };
             },
             {
@@ -466,6 +518,17 @@ const std::vector<DistributionEntry> kDistributions = {
                 const boost::math::beta_binomial_distribution<float> distribution(trials, alpha, beta);
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::cdf(distribution, std::round(std::clamp(x, 0.0f, static_cast<float>(distribution.trials())))));
+                };
+            },
+            [](const std::vector<float>& params) -> PpfFunction {
+                const float trials_value = params.size() > 0 ? std::max(params[0], 1.0f) : 10.0f;
+                const int trials = static_cast<int>(std::round(trials_value));
+                const float alpha = params.size() > 1 ? std::max(params[1], 1e-5f) : 2.0f;
+                const float beta = params.size() > 2 ? std::max(params[2], 1e-5f) : 5.0f;
+                const boost::math::beta_binomial_distribution<float> distribution(trials, alpha, beta);
+                return [distribution](float probability) -> float {
+                    const float clamped = std::clamp(probability, std::numeric_limits<float>::min(), 1.0f - std::numeric_limits<float>::epsilon());
+                    return static_cast<float>(boost::math::quantile(distribution, clamped));
                 };
             },
             {
@@ -542,6 +605,15 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
                 };
             },
+            [](const std::vector<float>& params) -> PpfFunction {
+                const int k = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
+                const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                const boost::math::negative_binomial_distribution<float> distribution(k, p);
+                return [distribution](float probability) -> float {
+                    const float clamped = std::clamp(probability, std::numeric_limits<float>::min(), 1.0f - std::numeric_limits<float>::epsilon());
+                    return static_cast<float>(boost::math::quantile(distribution, clamped));
+                };
+            },
             {
                 {
                     "Expected value",
@@ -608,6 +680,14 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
                 };
             },
+            [](const std::vector<float>& params) -> PpfFunction {
+                const float mean = params.size() > 0 ? std::max(params[0], 1e-6f) : 10.0f;
+                const boost::math::poisson_distribution<float> distribution(mean);
+                return [distribution](float probability) -> float {
+                    const float clamped = std::clamp(probability, std::numeric_limits<float>::min(), 1.0f - std::numeric_limits<float>::epsilon());
+                    return static_cast<float>(boost::math::quantile(distribution, clamped));
+                };
+            },
             {
                 {
                     "Expected value",
@@ -663,6 +743,13 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
     ImGui::Begin("Probability Window", &state.show_probability_window);
 
     static int item_selected_idx = 0;
+    static std::vector<float> sampled_x_values;
+    static std::vector<float> sampled_y_values;
+    const auto reset_samples = [&]() {
+        sampled_x_values.clear();
+        sampled_y_values.clear();
+    };
+
     item_selected_idx = std::clamp(item_selected_idx, 0, static_cast<int>(kDistributions.size()) - 1);
     const auto& current_entry = kDistributions[item_selected_idx];
 
@@ -696,6 +783,7 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
                 if (ImGui::Selectable(entry.label.c_str(), is_selected))
                 {
                     item_selected_idx = n;
+                    reset_samples();
                 }
             }
             ImGui::PopStyleColor();
@@ -756,6 +844,7 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
                 {
                     parameter_values[idx] = std::round(parameter_values[idx]);
                 }
+                reset_samples();
             }
             else
             {
@@ -814,14 +903,27 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
     {
         const auto pdf = definition.makePdf(parameter_values);
         const auto cdf = definition.makeCdf(parameter_values);
+        const auto ppf = definition.makePpf(parameter_values); 
 
         static float xs1[1001];
         static float ys1[1001];
         static float ys2[1001];
         constexpr int sample_count = static_cast<int>(std::size(xs1));
 
-    ImPlot::SetNextAxesLimits(definition.renderDomain[0], definition.renderDomain[1], 0.0f, 2.0f, ImPlotCond_Once);
-    ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
+        static bool is_sample_enabled = false;
+        static double last_sample_time = 0.0;
+        if (ImGui::Checkbox("Sample from dist every second", &is_sample_enabled))
+        {
+            last_sample_time = ImGui::GetTime();
+            if (!is_sample_enabled)
+            {
+                reset_samples();
+            }
+        }
+        
+
+        ImPlot::SetNextAxesLimits(definition.renderDomain[0], definition.renderDomain[1], 0.0f, 2.0f, ImPlotCond_Once);
+        ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
         if (ImPlot::BeginPlot("Line Plots"))
         {
             const ImPlotRect plot_limits = ImPlot::GetPlotLimits();
@@ -829,8 +931,8 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
             float view_end = static_cast<float>(plot_limits.X.Max);
             if (!std::isfinite(view_start) || !std::isfinite(view_end))
             {
-                view_start = definition.renderDomain[0];
-                view_end = definition.renderDomain[1];
+            view_start = definition.renderDomain[0];
+            view_end = definition.renderDomain[1];
             }
 
             float sample_start = std::max(view_start, definition.domain[0]);
@@ -850,7 +952,6 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
 
             const float sample_range = sample_end - sample_start;
             const float step = (sample_count > 1) ? sample_range / static_cast<float>(sample_count - 1) : 0.0f;
-
             auto adjust_sample_to_domain = [](float value, float lower, float upper) {
                 if (std::isfinite(lower) && value <= lower)
                 {
@@ -928,6 +1029,47 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
             definition.type == DistributionType::Continuous
                 ? ImPlot::PlotLine("CDF", xs1, ys2, sample_count)
                 : ImPlot::PlotStairs("CDF", xs1, ys2, sample_count);
+
+            if (is_sample_enabled)
+            {
+                const double now = ImGui::GetTime();
+                if (now - last_sample_time >= 1.0)
+                {
+                    last_sample_time = now;
+
+                    std::uniform_real_distribution<float> uniform(0.0f, 1.0f);
+                    const float random_probability = std::clamp(
+                        uniform(gen),
+                        std::numeric_limits<float>::min(),
+                        1.0f - std::numeric_limits<float>::epsilon());
+                    const float ppf_value = ppf(random_probability);
+
+                    sampled_x_values.push_back(ppf_value);
+
+                    constexpr float tolerance = 0.01f;
+                    int count_at_location = 0;
+                    for (float x_sample : sampled_x_values)
+                    {
+                        if (std::abs(x_sample - ppf_value) < tolerance)
+                        {
+                            ++count_at_location;
+                        }
+                    }
+
+                    const float pixel_offset = 0.02f;
+                    const float y_value = static_cast<float>(count_at_location - 1) * pixel_offset;
+                    sampled_y_values.push_back(y_value);
+                }
+            }
+
+            if (!sampled_x_values.empty())
+            {
+                ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(1.0f, 1.0f, 0.0f, 1.0f));
+                ImPlot::SetNextMarkerStyle(ImPlotMarker_Circle, 3.0f);
+                ImPlot::PlotScatter("Samples", sampled_x_values.data(), sampled_y_values.data(), static_cast<int>(sampled_x_values.size()));
+                ImPlot::PopStyleColor();
+            }
+
             ImPlot::PopStyleColor();
             ImPlot::EndPlot();
         }
