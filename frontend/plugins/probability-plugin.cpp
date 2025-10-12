@@ -331,7 +331,14 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
     item_selected_idx = std::clamp(item_selected_idx, 0, static_cast<int>(kDistributions.size()) - 1);
     const auto& current_entry = kDistributions[item_selected_idx];
 
-    if (ImGui::BeginCombo("Distributions", current_entry.label.c_str()))
+    const ImVec4 continuous_color(0.2f, 0.8f, 0.3f, 1.0f);
+    const ImVec4 discrete_color(0.9f, 0.2f, 0.2f, 1.0f);
+    const ImVec4 preview_color = current_entry.definition.type == DistributionType::Continuous ? continuous_color : discrete_color;
+    ImGui::PushStyleColor(ImGuiCol_Text, preview_color);
+    const bool opened = ImGui::BeginCombo("Distributions", current_entry.label.c_str());
+    ImGui::PopStyleColor();
+
+    if (opened)
     {
         static ImGuiTextFilter filter;
         if (ImGui::IsWindowAppearing())
@@ -346,13 +353,17 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
         {
             const bool is_selected = (item_selected_idx == n);
             const auto& entry = kDistributions[n];
-            if (filter.PassFilter(entry.label.c_str()))
+            const ImVec4 entry_color = entry.definition.type == DistributionType::Continuous ? continuous_color : discrete_color;
+            ImGui::PushStyleColor(ImGuiCol_Text, entry_color);
+            const bool passes_filter = filter.PassFilter(entry.label.c_str());
+            if (passes_filter)
             {
                 if (ImGui::Selectable(entry.label.c_str(), is_selected))
                 {
                     item_selected_idx = n;
                 }
             }
+            ImGui::PopStyleColor();
         }
         ImGui::EndCombo();
     }
@@ -452,7 +463,6 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
                 float x = sample_start + step * static_cast<float>(i);
                 x = adjust_sample_to_domain(x, definition.domain[0], definition.domain[1]);
                 xs1[i] = x;
-
                 if (definition.type == DistributionType::Continuous)
                 {
                     try
