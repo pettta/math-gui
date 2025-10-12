@@ -29,6 +29,7 @@ public:
         bool show_demo_window = true;
         bool show_linear_algebra_window = false; 
         bool show_probability_window = false; 
+        bool show_topology_window = false; 
         float clear_color[4] = {0.45f, 0.55f, 0.60f, 1.00f};
     };
 

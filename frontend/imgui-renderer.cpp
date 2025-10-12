@@ -99,12 +99,11 @@ void ImGuiRenderer::businessLogic(FrameState& state)
     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
     {
 
-        ImGui::Begin("Hello, world!");                                // Create a window called "Hello, world!" and append into it.
-
-        ImGui::Text("This is some useful text.");                     // Display some text (you can use a format strings too)
-        ImGui::Checkbox("Demo Window", &state.show_demo_window);      // Edit bools storing our window open/close state
+        ImGui::Begin("Hello, world!");      
+        ImGui::Checkbox("Demo Window", &state.show_demo_window);      
         ImGui::Checkbox("Linear Algebra Window", &state.show_linear_algebra_window);
         ImGui::Checkbox("Probability Window", &state.show_probability_window);
+        ImGui::Checkbox("Topology Window", &state.show_topology_window); 
         ImGui::ColorEdit3("clear color", state.clear_color);          // Edit 3 floats representing a color
 
         ImGuiIO& io = ImGui::GetIO(); 
@@ -114,10 +113,21 @@ void ImGuiRenderer::businessLogic(FrameState& state)
 
     if (state.show_linear_algebra_window)
     {
-        ImGui::Begin("Linear Algebra Window", &state.show_linear_algebra_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+        // TODO IMPLEMENT 
+        ImGui::Begin("Linear Algebra Window", &state.show_linear_algebra_window);  
         ImGui::Text("Hello from linear algebra window!");
         if (ImGui::Button("Close Me"))
             state.show_linear_algebra_window = false;
+        ImGui::End();
+    }
+
+    if (state.show_topology_window) 
+    {
+        // TODO IMPLEMENT 
+        ImGui::Begin("Topology Window", &state.show_topology_window);   
+        ImGui::Text("Hello from topology window!");
+        if (ImGui::Button("Close Me"))
+            state.show_topology_window = false;
         ImGui::End();
     }
 
