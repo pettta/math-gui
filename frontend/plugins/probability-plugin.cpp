@@ -47,6 +47,8 @@ enum class DistributionType
 
 using PdfFunction = std::function<float(float)>;
 using PdfFactory = std::function<PdfFunction(const std::vector<float>&)>;
+using CdfFunction = std::function<float(float)>;
+using CdfFactory = std::function<CdfFunction(const std::vector<float>&)>;
 
 struct DistributionDefinition
 {
@@ -57,6 +59,7 @@ struct DistributionDefinition
     std::vector<std::array<float, 2>> parameterDomains;
     PdfFactory makePdf;
     std::vector<bool> parameterIsIntegral;
+    CdfFactory makeCdf;
 };
 
 struct DistributionEntry
@@ -82,7 +85,15 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::pdf(distribution, x));
                 };
             },
-            {false, false}
+            {false, false},
+            [](const std::vector<float>& params) -> CdfFunction {
+                const float mean = params.size() > 0 ? params[0] : 0.0f;
+                const float stddev = params.size() > 1 ? std::max(params[1], 1e-6f) : 1.0f;
+                const boost::math::normal_distribution<float> distribution(mean, stddev);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::cdf(distribution, x));
+                };
+            }
         }
     },
     {
@@ -101,7 +112,15 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::pdf(distribution, x));
                 };
             },
-            {false, false}
+            {false, false},
+            [](const std::vector<float>& params) -> CdfFunction {
+                const float location = params.size() > 0 ? params[0] : 0.0f;
+                const float scale = params.size() > 1 ? std::max(params[1], 1e-6f) : 0.25f;
+                const boost::math::lognormal_distribution<float> distribution(location, scale);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::cdf(distribution, x));
+                };
+            }
         }
     },
     {
@@ -120,7 +139,15 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::pdf(distribution, x));
                 };
             },
-            {false, false}
+            {false, false},
+            [](const std::vector<float>& params) -> CdfFunction {
+                const float alpha = params.size() > 0 ? std::max(params[0], 1e-6f) : 2.0f;
+                const float beta = params.size() > 1 ? std::max(params[1], 1e-6f) : 5.0f;
+                const boost::math::beta_distribution<float> distribution(alpha, beta);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::cdf(distribution, x));
+                };
+            }
         }
     },
     {
@@ -138,7 +165,14 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::pdf(distribution, x));
                 };
             },
-            {false}
+            {false},
+            [](const std::vector<float>& params) -> CdfFunction {
+                const float lambda = params.size() > 0 ? std::max(params[0], 1e-6f) : 1.0f;
+                const boost::math::exponential_distribution<float> distribution(lambda);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::cdf(distribution, x));
+                };
+            }
         }
     },
     {
@@ -157,7 +191,15 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
                 };
             },
-            {true, false}
+            {true, false},
+            [](const std::vector<float>& params) -> CdfFunction {
+                const int trials = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
+                const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                const boost::math::binomial_distribution<float> distribution(trials, p);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
+                };
+            }
         }
     },
     {
@@ -178,7 +220,17 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::pdf(distribution, std::round(std::clamp(x, 0.0f, static_cast<float>(distribution.trials())))));
                 };
             },
-            {true, false, false}
+            {true, false, false},
+            [](const std::vector<float>& params) -> CdfFunction {
+                const float trials_value = params.size() > 0 ? std::max(params[0], 1.0f) : 10.0f;
+                const int trials = static_cast<int>(std::round(trials_value));
+                const float alpha = params.size() > 1 ? std::max(params[1], 1e-5f) : 2.0f;
+                const float beta = params.size() > 2 ? std::max(params[2], 1e-5f) : 5.0f;
+                const boost::math::beta_binomial_distribution<float> distribution(trials, alpha, beta);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::cdf(distribution, std::round(std::clamp(x, 0.0f, static_cast<float>(distribution.trials())))));
+                };
+            }
         }
     },
     // {
@@ -216,7 +268,15 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
                 };
             },
-            {true, false}
+            {true, false},
+            [](const std::vector<float>& params) -> CdfFunction {
+                const int k = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
+                const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                const boost::math::negative_binomial_distribution<float> distribution(k, p);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
+                };
+            }
         }
     },
     {
@@ -234,7 +294,14 @@ const std::vector<DistributionEntry> kDistributions = {
                     return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
                 };
             },
-            {false}
+            {false},
+            [](const std::vector<float>& params) -> CdfFunction {
+                const float mean = params.size() > 0 ? std::max(params[0], 1e-6f) : 10.0f;
+                const boost::math::poisson_distribution<float> distribution(mean);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
+                };
+            }
         }
     },
 };
@@ -328,12 +395,15 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
     if (should_render)
     {
         const auto pdf = definition.makePdf(parameter_values);
+        const auto cdf = definition.makeCdf(parameter_values);
 
         static float xs1[1001];
         static float ys1[1001];
+        static float ys2[1001];
         constexpr int sample_count = static_cast<int>(std::size(xs1));
 
-        ImPlot::SetNextAxesLimits(definition.renderDomain[0], definition.renderDomain[1], 0.0f, 2.0f, ImPlotCond_Once);
+    ImPlot::SetNextAxesLimits(definition.renderDomain[0], definition.renderDomain[1], 0.0f, 2.0f, ImPlotCond_Once);
+    ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.2f, 0.6f, 0.9f, 1.0f));
         if (ImPlot::BeginPlot("Line Plots"))
         {
             const ImPlotRect plot_limits = ImPlot::GetPlotLimits();
@@ -392,10 +462,16 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
                         {
                             ys1[i] = 0.0f;
                         }
+                        ys2[i] = cdf(x);
+                        if (!std::isfinite(ys2[i]))
+                        {
+                            ys2[i] = 0.0f;
+                        }
                     }
                     catch (const std::exception&)
                     {
                         ys1[i] = 0.0f;
+                        ys2[i] = 0.0f;
                     }
                 }
                 else if (definition.type == DistributionType::Discrete)
@@ -408,23 +484,37 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
                         {
                             ys1[i] = 0.0f;
                         }
+                        ys2[i] = cdf(x_rounded);
+                        if (!std::isfinite(ys2[i]))
+                        {
+                            ys2[i] = 0.0f;
+                        }
                     }
                     catch (const std::exception&)
                     {
                         ys1[i] = 0.0f;
+                        ys2[i] = 0.0f;
                     }
                 }
                 else
                 {
                     ys1[i] = 0.0f;
+                    ys2[i] = 0.0f;
                 }
             }
 
             definition.type == DistributionType::Continuous
                 ? ImPlot::PlotLine("PDF", xs1, ys1, sample_count)
                 : ImPlot::PlotStairs("PMF", xs1, ys1, sample_count);
+
+            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.9f, 0.4f, 0.2f, 1.0f));
+            definition.type == DistributionType::Continuous
+                ? ImPlot::PlotLine("CDF", xs1, ys2, sample_count)
+                : ImPlot::PlotStairs("CDF", xs1, ys2, sample_count);
+            ImPlot::PopStyleColor();
             ImPlot::EndPlot();
         }
+        ImPlot::PopStyleColor();
     }
 
     if (ImGui::Button("Close Me"))
