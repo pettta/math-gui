@@ -3,6 +3,10 @@
 #include "plugins/probability-plugin.h"
 
 #include <stdexcept>
+#include <array>
+#include <filesystem>
+#include <iostream>
+#include <system_error>
 
 ImGuiRenderer::ImGuiRenderer(ImGuiBackend& backend)
     : backend_(backend)
@@ -33,7 +37,21 @@ void ImGuiRenderer::initialize()
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
 
     ImGui::StyleColorsDark();
+    ImFont* builtin_font = io.Fonts->AddFontDefault();
 
+
+    ImFont* noto_font = nullptr;
+    std::filesystem::path loaded_noto_font_path;
+    noto_font = io.Fonts->AddFontFromFileTTF("../frontend/utils/fonts/NotoSansMath-Regular.ttf", 18.0f);
+
+
+    // Set default font BEFORE backend initialization
+    io.FontDefault = noto_font ? noto_font : builtin_font;
+
+    if (!noto_font)
+    {
+        std::cout << "[ImGuiRenderer] Failed to load Noto Sans font. Using built-in default font." << std::endl;
+    }
     backend_.initializeBackend();
     initialized_ = true;
 }

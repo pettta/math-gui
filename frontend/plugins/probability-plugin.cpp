@@ -57,6 +57,9 @@ struct DistributionDefinition
     DistributionType type;
     std::vector<float> parameters;
     std::vector<std::array<float, 2>> parameterDomains;
+    std::vector<std::string> parameterNames;
+    std::vector<std::string> parameterRanges;
+    std::vector<std::string> parameterDescriptions;
     PdfFactory makePdf;
     std::vector<bool> parameterIsIntegral;
     CdfFactory makeCdf;
@@ -77,6 +80,9 @@ const std::vector<DistributionEntry> kDistributions = {
             DistributionType::Continuous,
             {0.0f, 1.0f},
             {{-std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()}, {1e-6f, std::numeric_limits<float>::infinity()}},
+            {(const char*)u8"μ", "σ"},
+            {(const char*)u8"(-∞, ∞)", "σ   > 0"},
+            {"Mean", "Standard deviation"},
             [](const std::vector<float>& params) -> PdfFunction {
                 const float mean = params.size() > 0 ? params[0] : 0.0f;
                 const float stddev = params.size() > 1 ? std::max(params[1], 1e-6f) : 1.0f;
@@ -104,6 +110,9 @@ const std::vector<DistributionEntry> kDistributions = {
             DistributionType::Continuous,
             {0.0f, 0.25f},
             {{-std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()}, {1e-6f, std::numeric_limits<float>::infinity()}},
+            {"μ", "σ"},
+            {"(-∞, ∞)", "σ > 0"},
+            {"Location", "Scale"},
             [](const std::vector<float>& params) -> PdfFunction {
                 const float location = params.size() > 0 ? params[0] : 0.0f;
                 const float scale = params.size() > 1 ? std::max(params[1], 1e-6f) : 0.25f;
@@ -131,6 +140,9 @@ const std::vector<DistributionEntry> kDistributions = {
             DistributionType::Continuous,
             {2.0f, 5.0f},
             {{1e-6f, std::numeric_limits<float>::infinity()}, {1e-6f, std::numeric_limits<float>::infinity()}},
+            {"α", "β"},
+            {"α > 0", "β > 0"},
+            {"First shape", "Second shape"},
             [](const std::vector<float>& params) -> PdfFunction {
                 const float alpha = params.size() > 0 ? std::max(params[0], 1e-6f) : 2.0f;
                 const float beta = params.size() > 1 ? std::max(params[1], 1e-6f) : 5.0f;
@@ -158,6 +170,9 @@ const std::vector<DistributionEntry> kDistributions = {
             DistributionType::Continuous,
             {1.0f},
             {{1e-6f, std::numeric_limits<float>::infinity()}},
+            {"λ"},
+            {"λ > 0"},
+            {"Rate parameter"},
             [](const std::vector<float>& params) -> PdfFunction {
                 const float lambda = params.size() > 0 ? std::max(params[0], 1e-6f) : 1.0f;
                 const boost::math::exponential_distribution<float> distribution(lambda);
@@ -183,6 +198,9 @@ const std::vector<DistributionEntry> kDistributions = {
             DistributionType::Discrete,
             {10.0f, 0.5f},
             {{1e-6f, std::numeric_limits<float>::infinity()}, {0.0f, 1.0f}},
+            {"n", "p"},
+            {"n ≥ 1", "0 ≤ p ≤ 1"},
+            {"Number of trials", "Probability of success"},
             [](const std::vector<float>& params) -> PdfFunction {
                 const int trials = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
                 const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
@@ -210,6 +228,9 @@ const std::vector<DistributionEntry> kDistributions = {
             DistributionType::Discrete,
             {10.0f, 2.0f, 5.0f},
             {{1.0f, 200.0f}, {1e-5f, std::numeric_limits<float>::infinity()}, {1e-5f, std::numeric_limits<float>::infinity()}},
+            {"n", "α", "β"},
+            {"n ≥ 1", "α > 0", "β > 0"},
+            {"Trials", "Beta prior α", "Beta prior β"},
             [](const std::vector<float>& params) -> PdfFunction {
                 const float trials_value = params.size() > 0 ? std::max(params[0], 1.0f) : 10.0f;
                 const int trials = static_cast<int>(std::round(trials_value));
@@ -233,25 +254,6 @@ const std::vector<DistributionEntry> kDistributions = {
             }
         }
     },
-    // {
-    //     "beta binomial distribution",
-    //     DistributionDefinition{
-    //         {0.0f, std::numeric_limits<float>::infinity()},
-    //         {0.0f, 100.0f},
-    //         DistributionType::Discrete,
-    //         {10.0f, 2.0f, 5.0f},
-    //         {{1e-6f, std::numeric_limits<float>::infinity()}, {1e-6f, std::numeric_limits<float>::infinity()}, {1e-6f, std::numeric_limits<float>::infinity()}},
-    //         [](const std::vector<float>& params) -> PdfFunction {
-    //             const int trials = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
-    //             const float alpha = params.size() > 1 ? std::max(params[1], 1e-6f) : 2.0f;
-    //             const float beta = params.size() > 2 ? std::max(params[2], 1e-6f) : 5.0f;
-    //             const boost::math::beta_binomial_distribution<float> distribution(trials, alpha, beta);
-    //             return [distribution](float x) -> float {
-    //                 return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
-    //             };
-    //         }
-    //     }
-    // },
     {
         "negative binomial distribution",
         DistributionDefinition{
@@ -260,6 +262,9 @@ const std::vector<DistributionEntry> kDistributions = {
             DistributionType::Discrete,
             {10.0f, 0.5f},
             {{1e-6f, std::numeric_limits<float>::infinity()}, {0.0f, 1.0f}},
+            {"r", "p"},
+            {"r > 0", "0 ≤ p ≤ 1"},
+            {"Failures until stop", "Success probability"},
             [](const std::vector<float>& params) -> PdfFunction {
                 const int k = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
                 const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
@@ -287,6 +292,9 @@ const std::vector<DistributionEntry> kDistributions = {
             DistributionType::Discrete,
             {10.0f},
             {{1e-6f, std::numeric_limits<float>::infinity()}},
+            {"λ"},
+            {"λ > 0"},
+            {"Mean events"},
             [](const std::vector<float>& params) -> PdfFunction {
                 const float mean = params.size() > 0 ? std::max(params[0], 1e-6f) : 10.0f;
                 const boost::math::poisson_distribution<float> distribution(mean);
@@ -374,33 +382,71 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
     const auto& definition = kDistributions[item_selected_idx].definition;
     auto& parameter_values = gDistributionParameters[item_selected_idx];
 
-    for (std::size_t idx = 0; idx < parameter_values.size(); ++idx)
+    if (ImGui::BeginTable("ParameterTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_BordersOuter))
     {
-        const auto& bounds = definition.parameterDomains[idx];
-        const bool is_integral = idx < definition.parameterIsIntegral.size() ? definition.parameterIsIntegral[idx] : false;
-        const float min_bound = bounds[0];
-        const float max_bound = bounds[1];
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+        ImGui::TableSetupColumn("Range", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableSetupColumn("Description", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableHeadersRow();
 
-        std::string label = std::string("Parameter ") + std::to_string(idx + 1);
-        const char* label_cstr = label.c_str();
-        float step = std::max((max_bound - min_bound) * 0.01f, 0.001f);
-        if (is_integral)
+        for (std::size_t idx = 0; idx < parameter_values.size(); ++idx)
         {
-            step = std::max(1.0f, std::round(step));
-        }
-        if (!std::isfinite(step) || step <= 0.0f)
-        {
-            step = 0.1f;
-        }
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            const std::string& name = idx < definition.parameterNames.size() ? definition.parameterNames[idx] : ("Param " + std::to_string(idx + 1));
+            ImGui::TextUnformatted(name.c_str());
 
-        if (ImGui::DragFloat(label_cstr, &parameter_values[idx], step, min_bound, max_bound))
-        {
-            parameter_values[idx] = std::clamp(parameter_values[idx], min_bound, max_bound);
+            ImGui::TableSetColumnIndex(1);
+            const std::string& range = idx < definition.parameterRanges.size() ? definition.parameterRanges[idx] : "";
+            ImGui::TextUnformatted(range.c_str());
+
+            ImGui::TableSetColumnIndex(2);
+            const std::string& description = idx < definition.parameterDescriptions.size() ? definition.parameterDescriptions[idx] : "";
+            ImGui::TextWrapped("%s", description.c_str());
+
+            ImGui::TableSetColumnIndex(3);
+            const auto& bounds = definition.parameterDomains[idx];
+            const bool is_integral = idx < definition.parameterIsIntegral.size() ? definition.parameterIsIntegral[idx] : false;
+            const float min_bound = bounds[0];
+            const float max_bound = bounds[1];
+
+            ImGui::PushID(static_cast<int>(idx));
+            float step = std::max((max_bound - min_bound) * 0.005f, 0.001f);
             if (is_integral)
             {
-                parameter_values[idx] = std::round(parameter_values[idx]);
+                step = 1.0f;
             }
+            if (!std::isfinite(step) || step <= 0.0f)
+            {
+                step = is_integral ? 1.0f : 0.1f;
+            }
+
+            if (ImGui::DragFloat("##ParamValue", &parameter_values[idx], step, min_bound, max_bound, "%.4f", ImGuiSliderFlags_AlwaysClamp))
+            {
+                parameter_values[idx] = std::clamp(parameter_values[idx], min_bound, max_bound);
+                if (is_integral)
+                {
+                    parameter_values[idx] = std::round(parameter_values[idx]);
+                }
+            }
+            else
+            {
+                parameter_values[idx] = std::clamp(parameter_values[idx], min_bound, max_bound);
+                if (is_integral)
+                {
+                    parameter_values[idx] = std::round(parameter_values[idx]);
+                }
+            }
+            if (is_integral)
+            {
+                ImGui::SameLine();
+                ImGui::Text("%d", static_cast<int>(parameter_values[idx]));
+            }
+            ImGui::PopID();
         }
+
+        ImGui::EndTable();
     }
 
     if (should_render)
