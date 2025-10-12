@@ -12,6 +12,9 @@
 #include <string>
 #include <vector>
 
+
+
+// === Boost Distributions === // 
 // Continuous distributions 
 #include <boost/math/distributions/lognormal.hpp>
 #include <boost/math/distributions/normal.hpp>
@@ -23,6 +26,12 @@
 #include <boost/math/distributions/poisson.hpp>
 #include <boost/math/distributions/negative_binomial.hpp>
 #include <boost/math/distributions/hypergeometric.hpp>
+
+
+// ===  Custom Distributions === // 
+// Continuous distributions 
+// Discrete distributions 
+
 
 
 namespace math_gui::plugins
@@ -138,6 +147,43 @@ const std::vector<DistributionEntry> kDistributions = {
                 const int trials = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
                 const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
                 const boost::math::binomial_distribution<float> distribution(trials, p);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
+                };
+            }
+        }
+    },
+    // {
+    //     "beta binomial distribution",
+    //     DistributionDefinition{
+    //         {0.0f, std::numeric_limits<float>::infinity()},
+    //         {0.0f, 100.0f},
+    //         DistributionType::Discrete,
+    //         {10.0f, 2.0f, 5.0f},
+    //         {{1e-6f, std::numeric_limits<float>::infinity()}, {1e-6f, std::numeric_limits<float>::infinity()}, {1e-6f, std::numeric_limits<float>::infinity()}},
+    //         [](const std::vector<float>& params) -> PdfFunction {
+    //             const int trials = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
+    //             const float alpha = params.size() > 1 ? std::max(params[1], 1e-6f) : 2.0f;
+    //             const float beta = params.size() > 2 ? std::max(params[2], 1e-6f) : 5.0f;
+    //             const boost::math::beta_binomial_distribution<float> distribution(trials, alpha, beta);
+    //             return [distribution](float x) -> float {
+    //                 return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
+    //             };
+    //         }
+    //     }
+    // },
+    {
+        "negative binomial distribution",
+        DistributionDefinition{
+            {0.0f, std::numeric_limits<float>::infinity()},
+            {0.0f, 100.0f},
+            DistributionType::Discrete,
+            {10.0f, 0.5f},
+            {{1e-6f, std::numeric_limits<float>::infinity()}, {0.0f, 1.0f}},
+            [](const std::vector<float>& params) -> PdfFunction {
+                const int k = params.size() > 0 ? static_cast<int>(std::max(params[0], 1e-6f)) : 10;
+                const float p = params.size() > 1 ? std::clamp(params[1], 0.0f, 1.0f) : 0.5f;
+                const boost::math::negative_binomial_distribution<float> distribution(k, p);
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
                 };
