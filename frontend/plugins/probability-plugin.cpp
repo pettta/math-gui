@@ -24,6 +24,7 @@
 #include <boost/math/distributions/exponential.hpp>
 
 // Discrete distributions 
+#include <boost/math/distributions/bernoulli.hpp>
 #include <boost/math/distributions/binomial.hpp>
 #include <boost/math/distributions/poisson.hpp>
 #include <boost/math/distributions/negative_binomial.hpp>
@@ -44,29 +45,6 @@ namespace
 std::random_device rd; 
 std::mt19937 gen(rd()); 
 
-
-enum class DistributionType
-{
-    Continuous,
-    Discrete
-};
-
-using PdfFunction = std::function<float(float)>;
-using PdfFactory = std::function<PdfFunction(const std::vector<float>&)>;
-using CdfFunction = std::function<float(float)>;
-using CdfFactory = std::function<CdfFunction(const std::vector<float>&)>;
-using PpfFunction = std::function<float(float)>;
-using PpfFactory = std::function<PpfFunction(const std::vector<float>&)>;
-using StatisticValue = std::optional<float>;
-using StatisticFactory = std::function<StatisticValue(const std::vector<float>&)>;
-
-struct StatisticDefinition
-{
-    std::string label;
-    std::string formula;
-    StatisticFactory compute;
-};
-
 template <typename Func>
 StatisticValue EvaluateStatistic(Func&& func)
 {
@@ -86,29 +64,6 @@ StatisticValue EvaluateStatistic(Func&& func)
     }
     return std::nullopt;
 }
-
-struct DistributionDefinition
-{
-    std::array<float, 2> domain;
-    std::array<float, 2> renderDomain;
-    DistributionType type;
-    std::vector<float> parameters;
-    std::vector<std::array<float, 2>> parameterDomains;
-    std::vector<std::string> parameterNames;
-    std::vector<std::string> parameterRanges;
-    std::vector<std::string> parameterDescriptions;
-    PdfFactory makePdf;
-    std::vector<bool> parameterIsIntegral;
-    CdfFactory makeCdf;
-    PpfFactory makePpf;
-    std::vector<StatisticDefinition> statistics;
-};
-
-struct DistributionEntry
-{
-    std::string label;
-    DistributionDefinition definition;
-};
 
 const std::vector<DistributionEntry> kDistributions = {
     {
@@ -406,6 +361,76 @@ const std::vector<DistributionEntry> kDistributions = {
                         return EvaluateStatistic([&]() -> double {
                             const boost::math::exponential_distribution<double> distribution(lambda);
                             return boost::math::kurtosis(distribution);
+                        });
+                    }
+                }
+            }
+        }
+    },
+    {
+        "bernoulli distribution",
+        DistributionDefinition{
+            {0.0f, 1.0f},
+            {0.0f, 1.0f},
+            DistributionType::Discrete,
+            {0.5f},
+            {{0.0f, 1.0f}},
+            {"p"},
+            {"0 ≤ p ≤ 1"},
+            {"Probability of success"},
+            [](const std::vector<float>& params) -> PdfFunction {
+                const float p = params.size() > 0 ? std::clamp(params[0], 0.0f, 1.0f) : 0.5f;
+                const boost::math::bernoulli_distribution<float> distribution(p);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
+                };
+            },
+            {false},
+            [](const std::vector<float>& params) -> CdfFunction {
+                const float p = params.size() > 0 ? std::clamp(params[0], 0.0f, 1.0f) : 0.5f;
+                const boost::math::bernoulli_distribution<float> distribution(p);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::cdf(distribution, std::round(x)));
+                };
+            },
+            [](const std::vector<float>& params) -> PpfFunction {
+                const float p = params.size() > 0 ? std::clamp(params[0], 0.0f, 1.0f) : 0.5f;
+                const boost::math::bernoulli_distribution<float> distribution(p);
+                return [distribution](float probability) -> float {
+                    const float clamped = std::clamp(probability, std::numeric_limits<float>::min(), 1.0f - std::numeric_limits<float>::epsilon());
+                    return static_cast<float>(boost::math::quantile(distribution, clamped));
+                };
+            },
+            {
+                {
+                    "Expected value",
+                    "E[X] = p",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float p = params.size() > 0 ? std::clamp(params[0], 0.0f, 1.0f) : 0.5f;
+                        return StatisticValue(p);
+                    }
+                },
+                {
+                    "Variance",
+                    "Var(X) = p (1 - p)",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float p = params.size() > 0 ? std::clamp(params[0], 0.0f, 1.0f) : 0.5f;
+                        return StatisticValue(p * (1.0f - p));
+                    }
+                },
+                {
+                    "Kurtosis",
+                    "κ = (1 - 6p(1 - p)) / (p(1 - p))",
+                    [](const std::vector<float>& params) -> StatisticValue {
+                        const float p = params.size() > 0 ? std::clamp(params[0], 0.0f, 1.0f) : 0.5f;
+                        const double variance_component = static_cast<double>(p) * (1.0 - static_cast<double>(p));
+                        if (variance_component <= 0.0)
+                        {
+                            return std::nullopt;
+                        }
+                        return EvaluateStatistic([&]() -> double {
+                            const double numerator = 1.0 - 6.0 * static_cast<double>(p) * (1.0 - static_cast<double>(p));
+                            return numerator / variance_component;
                         });
                     }
                 }
@@ -869,7 +894,7 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
     {
         if (ImGui::BeginTable("DistributionStatsTable", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_BordersOuter))
         {
-            ImGui::TableSetupColumn("Statistic", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+            ImGui::TableSetupColumn("Population Parameter", ImGuiTableColumnFlags_WidthFixed, 140.0f);
             ImGui::TableSetupColumn("Formula", ImGuiTableColumnFlags_WidthStretch);
             ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 140.0f);
             ImGui::TableHeadersRow();
@@ -905,10 +930,14 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
         const auto cdf = definition.makeCdf(parameter_values);
         const auto ppf = definition.makePpf(parameter_values); 
 
-        static float xs1[1001];
-        static float ys1[1001];
-        static float ys2[1001];
-        constexpr int sample_count = static_cast<int>(std::size(xs1));
+    static float xs1[1001];
+    static float ys1[1001];
+    static float ys2[1001];
+    constexpr int sample_count = static_cast<int>(std::size(xs1));
+    static std::vector<float> discrete_bucket_x;
+    static std::vector<float> discrete_bucket_pmf;
+    static std::vector<float> discrete_bucket_cdf;
+    static std::vector<float> discrete_bucket_edges;
 
         static bool is_sample_enabled = false;
         static double last_sample_time = 0.0;
@@ -1021,14 +1050,119 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
                 }
             }
 
-            definition.type == DistributionType::Continuous
-                ? ImPlot::PlotLine("PDF", xs1, ys1, sample_count)
-                : ImPlot::PlotStairs("PMF", xs1, ys1, sample_count);
+            std::size_t discrete_bucket_count = 0;
+            float bucket_edge_top = 1.0f;
+            if (definition.type == DistributionType::Discrete)
+            {
+                discrete_bucket_x.clear();
+                discrete_bucket_pmf.clear();
+                discrete_bucket_cdf.clear();
+                discrete_bucket_edges.clear();
+
+                const float domain_lower = std::isfinite(definition.domain[0]) ? definition.domain[0] : sample_start;
+                const float domain_upper = std::isfinite(definition.domain[1]) ? definition.domain[1] : sample_end;
+                const float range_lower = std::max(sample_start, domain_lower);
+                const float range_upper = std::min(sample_end, domain_upper);
+                int min_bucket = static_cast<int>(std::ceil(range_lower));
+                int max_bucket = static_cast<int>(std::floor(range_upper));
+
+                if (min_bucket > max_bucket)
+                {
+                    min_bucket = static_cast<int>(std::floor(range_lower));
+                    max_bucket = static_cast<int>(std::ceil(range_upper));
+                }
+
+                if (min_bucket <= max_bucket)
+                {
+                    float max_pmf_value = 0.0f;
+                    discrete_bucket_edges.push_back(static_cast<float>(min_bucket) - 0.5f);
+                    for (int bucket = min_bucket; bucket <= max_bucket; ++bucket)
+                    {
+                        const float x_center = static_cast<float>(bucket);
+                        float pdf_value = 0.0f;
+                        float cdf_value = 0.0f;
+                        try
+                        {
+                            pdf_value = pdf(x_center);
+                            if (!std::isfinite(pdf_value))
+                            {
+                                pdf_value = 0.0f;
+                            }
+                        }
+                        catch (...)
+                        {
+                            pdf_value = 0.0f;
+                        }
+
+                        try
+                        {
+                            cdf_value = cdf(x_center);
+                            if (!std::isfinite(cdf_value))
+                            {
+                                cdf_value = 0.0f;
+                            }
+                        }
+                        catch (...)
+                        {
+                            cdf_value = 0.0f;
+                        }
+
+                        discrete_bucket_x.push_back(x_center);
+                        discrete_bucket_pmf.push_back(pdf_value);
+                        discrete_bucket_cdf.push_back(cdf_value);
+                        discrete_bucket_edges.push_back(x_center + 0.5f);
+                        max_pmf_value = std::max(max_pmf_value, pdf_value);
+                    }
+
+                    discrete_bucket_count = discrete_bucket_x.size();
+                    const float limits_top = static_cast<float>(plot_limits.Y.Max);
+                    if (std::isfinite(limits_top) && limits_top > 0.0f)
+                    {
+                        bucket_edge_top = limits_top;
+                    }
+                    else
+                    {
+                        bucket_edge_top = std::max(max_pmf_value, 1.0f);
+                    }
+                    if (bucket_edge_top <= 0.0f)
+                    {
+                        bucket_edge_top = 1.0f;
+                    }
+                }
+            }
+
+            if (definition.type == DistributionType::Continuous)
+            {
+                ImPlot::PlotLine("PDF", xs1, ys1, sample_count);
+            }
+            else if (discrete_bucket_count > 0)
+            {
+                constexpr float bar_width = 0.9f;
+                ImPlot::PlotBars("PMF", discrete_bucket_x.data(), discrete_bucket_pmf.data(), static_cast<int>(discrete_bucket_count), bar_width);
+
+                const ImVec4 edge_color(0.2f, 0.2f, 0.2f, 0.9f);
+                ImPlot::PushStyleColor(ImPlotCol_Line, edge_color);
+                for (std::size_t edge_idx = 0; edge_idx < discrete_bucket_edges.size(); ++edge_idx)
+                {
+                    const float edge_x = discrete_bucket_edges[edge_idx];
+                    const float edge_xs[2] = {edge_x, edge_x};
+                    const float edge_ys[2] = {0.0f, bucket_edge_top};
+                    ImGui::PushID(static_cast<int>(edge_idx));
+                    ImPlot::PlotLine("##pmf_edge", edge_xs, edge_ys, 2);
+                    ImGui::PopID();
+                }
+                ImPlot::PopStyleColor();
+            }
 
             ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.9f, 0.4f, 0.2f, 1.0f));
-            definition.type == DistributionType::Continuous
-                ? ImPlot::PlotLine("CDF", xs1, ys2, sample_count)
-                : ImPlot::PlotStairs("CDF", xs1, ys2, sample_count);
+            if (definition.type == DistributionType::Continuous)
+            {
+                ImPlot::PlotLine("CDF", xs1, ys2, sample_count);
+            }
+            else if (discrete_bucket_count > 0)
+            {
+                ImPlot::PlotStairs("CDF", discrete_bucket_x.data(), discrete_bucket_cdf.data(), static_cast<int>(discrete_bucket_count));
+            }
 
             if (is_sample_enabled)
             {
