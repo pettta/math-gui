@@ -31,6 +31,7 @@
 // ===  Custom Distributions === // 
 // Continuous distributions 
 // Discrete distributions 
+#include "../utils/distributions/beta_binomial.cpp"
 
 
 
@@ -55,6 +56,7 @@ struct DistributionDefinition
     std::vector<float> parameters;
     std::vector<std::array<float, 2>> parameterDomains;
     PdfFactory makePdf;
+    std::vector<bool> parameterIsIntegral;
 };
 
 struct DistributionEntry
@@ -79,7 +81,8 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::pdf(distribution, x));
                 };
-            }
+            },
+            {false, false}
         }
     },
     {
@@ -97,7 +100,8 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::pdf(distribution, x));
                 };
-            }
+            },
+            {false, false}
         }
     },
     {
@@ -115,7 +119,8 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::pdf(distribution, x));
                 };
-            }
+            },
+            {false, false}
         }
     },
     {
@@ -132,7 +137,8 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::pdf(distribution, x));
                 };
-            }
+            },
+            {false}
         }
     },
     {
@@ -150,7 +156,29 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
                 };
-            }
+            },
+            {true, false}
+        }
+    },
+    {
+        "beta binomial distribution",
+        DistributionDefinition{
+            {0.0f, std::numeric_limits<float>::infinity()},
+            {0.0f, 100.0f},
+            DistributionType::Discrete,
+            {10.0f, 2.0f, 5.0f},
+            {{1.0f, 200.0f}, {1e-5f, std::numeric_limits<float>::infinity()}, {1e-5f, std::numeric_limits<float>::infinity()}},
+            [](const std::vector<float>& params) -> PdfFunction {
+                const float trials_value = params.size() > 0 ? std::max(params[0], 1.0f) : 10.0f;
+                const int trials = static_cast<int>(std::round(trials_value));
+                const float alpha = params.size() > 1 ? std::max(params[1], 1e-5f) : 2.0f;
+                const float beta = params.size() > 2 ? std::max(params[2], 1e-5f) : 5.0f;
+                const boost::math::beta_binomial_distribution<float> distribution(trials, alpha, beta);
+                return [distribution](float x) -> float {
+                    return static_cast<float>(boost::math::pdf(distribution, std::round(std::clamp(x, 0.0f, static_cast<float>(distribution.trials())))));
+                };
+            },
+            {true, false, false}
         }
     },
     // {
@@ -187,7 +215,8 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
                 };
-            }
+            },
+            {true, false}
         }
     },
     {
@@ -204,7 +233,8 @@ const std::vector<DistributionEntry> kDistributions = {
                 return [distribution](float x) -> float {
                     return static_cast<float>(boost::math::pdf(distribution, std::round(x)));
                 };
-            }
+            },
+            {false}
         }
     },
 };
@@ -234,7 +264,7 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
     item_selected_idx = std::clamp(item_selected_idx, 0, static_cast<int>(kDistributions.size()) - 1);
     const auto& current_entry = kDistributions[item_selected_idx];
 
-    if (ImGui::BeginCombo("Continuous Distributions", current_entry.label.c_str()))
+    if (ImGui::BeginCombo("Distributions", current_entry.label.c_str()))
     {
         static ImGuiTextFilter filter;
         if (ImGui::IsWindowAppearing())
@@ -269,12 +299,17 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
     for (std::size_t idx = 0; idx < parameter_values.size(); ++idx)
     {
         const auto& bounds = definition.parameterDomains[idx];
+        const bool is_integral = idx < definition.parameterIsIntegral.size() ? definition.parameterIsIntegral[idx] : false;
         const float min_bound = bounds[0];
         const float max_bound = bounds[1];
 
         std::string label = std::string("Parameter ") + std::to_string(idx + 1);
         const char* label_cstr = label.c_str();
         float step = std::max((max_bound - min_bound) * 0.01f, 0.001f);
+        if (is_integral)
+        {
+            step = std::max(1.0f, std::round(step));
+        }
         if (!std::isfinite(step) || step <= 0.0f)
         {
             step = 0.1f;
@@ -283,6 +318,10 @@ void RenderProbabilityWindow(ImGuiRenderer::FrameState& state)
         if (ImGui::DragFloat(label_cstr, &parameter_values[idx], step, min_bound, max_bound))
         {
             parameter_values[idx] = std::clamp(parameter_values[idx], min_bound, max_bound);
+            if (is_integral)
+            {
+                parameter_values[idx] = std::round(parameter_values[idx]);
+            }
         }
     }
 
