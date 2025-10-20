@@ -95,6 +95,7 @@ if(APPLE)
     metal-engine/metal_engine.mm
     frontend/imgui-renderer.cpp
     frontend/plugins/probability-plugin.cpp
+    frontend/plugins/topology-plugin.cpp
     frontend/metal_imgui_backend.mm
   )
 

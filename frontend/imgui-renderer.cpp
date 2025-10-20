@@ -1,6 +1,7 @@
 #include "imgui-renderer.h"
 
 #include "plugins/probability-plugin.h"
+#include "plugins/topology-plugin.h" 
 
 #include <stdexcept>
 #include <array>
@@ -123,12 +124,7 @@ void ImGuiRenderer::businessLogic(FrameState& state)
 
     if (state.show_topology_window) 
     {
-        // TODO IMPLEMENT 
-        ImGui::Begin("Topology Window", &state.show_topology_window);   
-        ImGui::Text("Hello from topology window!");
-        if (ImGui::Button("Close Me"))
-            state.show_topology_window = false;
-        ImGui::End();
+        math_gui::plugins::RenderTopologyWindow(state); 
     }
 
     if (state.show_probability_window)
