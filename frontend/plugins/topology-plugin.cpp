@@ -389,8 +389,16 @@ void RenderTopologyWindow(ImGuiRenderer::FrameState& state)
             ImPlot::PopStyleVar();
             ImGui::TreePop();
             ImGui::Spacing();
+       
         }
 
+        if (ImGui::TreeNode("1.7.12 Plots")) {
+            // Future topology visualizations can be added here
+            ImGui::TextUnformatted("Visualizations for equivalence classes in countably infinite sets.");
+            
+            ImGui::TreePop();
+            ImGui::Spacing();
+        }
     }
 
 
