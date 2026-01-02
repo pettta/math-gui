@@ -4,12 +4,19 @@ add_executable (vulkan_engine
   main.cpp
   vk_engine.cpp
   vk_engine.h
+  ../frontend/imgui-renderer.cpp
+  ../frontend/plugins/probability-plugin.cpp
+  ../frontend/plugins/topology-plugin.cpp
+  ../frontend/vulkan_imgui_backend.cpp
 )
 
 set_property(TARGET vulkan_engine PROPERTY CXX_STANDARD 20)
 set_property(TARGET vulkan_engine PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $<TARGET_FILE_DIR:vulkan_engine>)
 
-target_include_directories(vulkan_engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(vulkan_engine PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${PROJECT_SOURCE_DIR}/frontend"
+)
 
 
 target_link_libraries(vulkan_engine 

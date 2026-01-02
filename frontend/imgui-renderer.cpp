@@ -147,13 +147,10 @@ void ImGuiRenderer::endFrame()
 void ImGuiRenderer::renderFrame(const std::function<void(FrameState&)>& drawUI)
 {
     beginFrame();
+    businessLogic(initialState_);
     if (drawUI)
     {
         drawUI(initialState_);
-    }
-    else
-    {
-        businessLogic(initialState_);
     }
     endFrame();
 }

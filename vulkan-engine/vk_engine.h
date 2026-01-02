@@ -9,6 +9,10 @@
 #include <deque>
 #include <functional>
 #include "vk_descriptors.h"
+#include <memory>
+
+#include "imgui-renderer.h"
+#include "vulkan_imgui_backend.h"
 
 struct DeletionQueue 
 {
@@ -75,6 +79,9 @@ public:
 
 	FrameData& get_current_frame() { return _frames[_frameNumber % FRAME_OVERLAP]; };
 
+	std::unique_ptr<VulkanImguiBackend> _imguiBackend;
+	std::unique_ptr<ImGuiRenderer> _imguiRenderer;
+
 
 	VkQueue _graphicsQueue;
 	uint32_t _graphicsQueueFamily;	
@@ -121,7 +128,6 @@ public:
 	void draw();
 
 	void draw_background(VkCommandBuffer cmd);
-	void draw_imgui(VkCommandBuffer cmd,  VkImageView targetImageView);
 
 	//run main loop
 	void run();
