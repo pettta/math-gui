@@ -93,9 +93,6 @@ if(APPLE)
   target_link_libraries(metal_engine PRIVATE
     implot3d
     eigen
-    Boost::filesystem
-    Boost::system
-    Boost::random
     Boost::headers
   )
   if(TARGET SDL2::SDL2)

@@ -29,9 +29,6 @@ target_link_libraries(vkguide_shared PUBLIC
   stb_image
   SDL2::SDL2
   eigen
-  Boost::filesystem
-  Boost::system
-  Boost::random
   Boost::headers
 )
 

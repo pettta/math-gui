@@ -17,9 +17,6 @@ vkguide_shared
 vkbootstrap 
 implot3d
 eigen
-Boost::filesystem
-Boost::system
-Boost::random
 Boost::headers
 )
 
