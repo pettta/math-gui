@@ -40,17 +40,14 @@ if(APPLE)
     third_party/imgui/imgui_impl_sdl2.cpp
     third_party/imgui/imgui_impl_metal.mm
   )
-
   target_include_directories(imgui PUBLIC
     third_party/imgui
   )
-
   target_link_libraries(imgui PUBLIC
     SDL2::SDL2
     "-framework Metal"
     "-framework MetalKit"
   )
-
   target_compile_options(imgui PRIVATE
     $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-weak>
     $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>
@@ -61,11 +58,9 @@ if(APPLE)
     third_party/implot/implot_demo.cpp
     third_party/implot/implot_items.cpp
   )
-
   target_include_directories(implot PUBLIC
     third_party/implot
   )
-
   target_link_libraries(implot PUBLIC
     imgui
   )
@@ -76,17 +71,14 @@ if(APPLE)
     third_party/implot3d/implot3d_demo.cpp
     third_party/implot3d/implot3d_meshes.cpp
   )
-
   target_include_directories(implot3d PUBLIC
     third_party/implot3d
   )
-
   target_link_libraries(implot3d PUBLIC
     implot
   )
 
   add_library(eigen INTERFACE)
-
   target_include_directories(eigen INTERFACE
     third_party/eigen
   )
@@ -98,7 +90,6 @@ if(APPLE)
     frontend/plugins/topology-plugin.cpp
     frontend/metal_imgui_backend.mm
   )
-
   target_link_libraries(metal_engine PRIVATE
     implot3d
     eigen
@@ -107,14 +98,12 @@ if(APPLE)
     Boost::random
     Boost::headers
   )
-
   if(TARGET SDL2::SDL2)
     target_link_libraries(metal_engine PRIVATE SDL2::SDL2)
   else()
     target_include_directories(metal_engine PRIVATE ${SDL2_INCLUDE_DIRS})
     target_link_libraries(metal_engine PRIVATE ${SDL2_LIBRARIES})
   endif()
-
   target_link_libraries(metal_engine PRIVATE
     "-framework Metal"
     "-framework MetalKit"
@@ -123,7 +112,6 @@ if(APPLE)
     "-framework CoreVideo"
     "-framework QuartzCore"
   )
-
   target_compile_options(metal_engine PRIVATE
     -Wall
     -Wformat
@@ -132,7 +120,10 @@ if(APPLE)
   )
 
 else()
-
+  
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
   find_package(Vulkan REQUIRED)
 
   add_subdirectory(third_party)

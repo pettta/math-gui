@@ -41,8 +41,7 @@ if sys.platform.startswith("win"):
     print(f"Running on Windows w/ Path={PATH_PREFIX + os.pathsep + os.environ['PATH']}")
     os.environ["PATH"] = PATH_PREFIX + os.pathsep + os.environ["PATH"]
     try:
-        subprocess.run(["cmake", "-B", "build", "."])
-        subprocess.run(["cmake", "--build", "build", "--config", "Release"])
+        run_cmake_build()
         os.chdir(os.path.join("bin", "Release"))
         print("Now you can run the executables! Running Vulkan Engine...")
         subprocess.run(["vulkan_engine.exe"])
