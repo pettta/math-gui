@@ -40,11 +40,25 @@ void ImGuiRenderer::initialize()
     ImGui::StyleColorsDark();
     ImFont* builtin_font = io.Fonts->AddFontDefault();
 
-
     ImFont* noto_font = nullptr;
-    std::filesystem::path loaded_noto_font_path;
-    noto_font = io.Fonts->AddFontFromFileTTF("../frontend/utils/fonts/NotoSansMath-Regular.ttf", 18.0f);
+    const std::array<std::filesystem::path, 3> font_candidates = {
+        std::filesystem::path("../frontend/utils/fonts/NotoSansMath-Regular.ttf"),
+        std::filesystem::path("../../frontend/utils/fonts/NotoSansMath-Regular.ttf"),
+        std::filesystem::path("frontend/utils/fonts/NotoSansMath-Regular.ttf")
+    };
 
+    for (const auto& candidate : font_candidates)
+    {
+        if (std::filesystem::exists(candidate))
+        {
+            noto_font = io.Fonts->AddFontFromFileTTF(candidate.string().c_str(), 18.0f);
+            if (noto_font)
+            {
+                std::cout << "[ImGuiRenderer] Loaded font from: " << candidate << std::endl;
+                break;
+            }
+        }
+    }
 
     // Set default font BEFORE backend initialization
     io.FontDefault = noto_font ? noto_font : builtin_font;
