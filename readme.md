@@ -1,3 +1,6 @@
+# Math GUI
+![alt text](image.png)
+
 # Requirements 
 ## Windows 
 https://visualstudio.microsoft.com/vs/community/ 
