@@ -335,7 +335,7 @@ void VulkanEngine::rebuild_swapchain()
 	vmaDestroyImage(_allocator, _drawImage.image, _drawImage.allocation);
 
 	vkb::Swapchain vkbSwapchain = swapchainBuilder
-		.use_default_format_selection()
+		.set_desired_format(VkSurfaceFormatKHR{ .format = VK_FORMAT_B8G8R8A8_UNORM, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
 		//use vsync present mode
 		.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 		.set_desired_extent(_windowExtent.width, _windowExtent.height)
@@ -347,6 +347,8 @@ void VulkanEngine::rebuild_swapchain()
 	_swapchain = vkbSwapchain.swapchain;
 	_swapchainImages = vkbSwapchain.get_images().value();
 	_swapchainImageViews = vkbSwapchain.get_image_views().value();
+	_swapchainExtent = vkbSwapchain.extent;
+	_swapchainImageFormat = vkbSwapchain.image_format;
 
 	if (_imguiBackend)
 	{
@@ -355,8 +357,6 @@ void VulkanEngine::rebuild_swapchain()
 		_imguiBackend->updateSwapchainInfo(_swapchainImageFormat, imageCount, minImageCount);
 	}
 
-	_swapchainImageFormat = vkbSwapchain.image_format;
-
 	//depth image size will match the window
 	VkExtent3D drawImageExtent = {
 		_windowExtent.width,
@@ -364,8 +364,9 @@ void VulkanEngine::rebuild_swapchain()
 		1
 	};
 
-	//hardcoding the depth format to 32 bit float
-	_drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+	//align draw image with swapchain format to avoid channel/gamma mismatch
+	_drawImage.imageFormat = _swapchainImageFormat;
+	_drawImage.imageExtent = drawImageExtent;
 
 	VkImageUsageFlags drawImageUsages{};
 	drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -485,12 +486,8 @@ void VulkanEngine::destroy_swapchain()
 void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
 {
 	vkb::SwapchainBuilder swapchainBuilder{ _chosenGPU,_device,_surface };
-
-	_swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
-
 	vkb::Swapchain vkbSwapchain = swapchainBuilder
-		//.use_default_format_selection()
-		.set_desired_format(VkSurfaceFormatKHR{ .format = _swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+		.set_desired_format(VkSurfaceFormatKHR{ .format = VK_FORMAT_B8G8R8A8_UNORM, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
 		//use vsync present mode
 		.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 		.set_desired_extent(width, height)
@@ -498,6 +495,7 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
 		.build()
 		.value();
 
+	_swapchainImageFormat = vkbSwapchain.image_format;
 	_swapchainExtent = vkbSwapchain.extent;
 	//store swapchain and its related images
 	_swapchain = vkbSwapchain.swapchain;
@@ -517,8 +515,8 @@ void VulkanEngine::init_swapchain()
 		1
 	};
 
-	//hardcoding the draw format to 32 bit float
-	_drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+	//align draw image with swapchain format to avoid channel/gamma mismatch
+	_drawImage.imageFormat = _swapchainImageFormat;
 	_drawImage.imageExtent = drawImageExtent;
 
 	VkImageUsageFlags drawImageUsages{};
