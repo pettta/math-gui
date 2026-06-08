@@ -104,9 +104,21 @@ void ImGuiRenderer::beginFrame()
 
 void ImGuiRenderer::businessLogic(FrameState& state)
 {
-    // 0. Header bar with the GIF recorder. The button and the Cmd+Shift+G chord
-    //    both just flip state.gif_recording; the macOS engine reacts to the
-    //    transition (start/stop ffmpeg) and writes state.gif_status back here.
+    // 0. Header bar with the GIF recorder. The button and the keyboard chord
+    //    both just flip state.gif_recording; the engine (Metal on macOS, Vulkan
+    //    on Windows/Linux) reacts to the transition (start/stop ffmpeg) and
+    //    writes state.gif_status back here. The chord uses Cmd on macOS and Ctrl
+    //    elsewhere, matching platform conventions.
+#ifdef __APPLE__
+    const ImGuiKeyChord kGifChord = ImGuiMod_Super | ImGuiMod_Shift | ImGuiKey_G;
+    const char* kGifStartLabel = "Record GIF (Cmd+Shift+G)";
+    const char* kGifStopLabel = "\xE2\x97\x8F Stop GIF (Cmd+Shift+G)";
+#else
+    const ImGuiKeyChord kGifChord = ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_G;
+    const char* kGifStartLabel = "Record GIF (Ctrl+Shift+G)";
+    const char* kGifStopLabel = "\xE2\x97\x8F Stop GIF (Ctrl+Shift+G)";
+#endif
+
     if (ImGui::BeginMainMenuBar())
     {
         const bool rec = state.gif_recording;
@@ -116,7 +128,7 @@ void ImGuiRenderer::businessLogic(FrameState& state)
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.95f, 0.25f, 0.25f, 1.0f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.75f, 0.10f, 0.10f, 1.0f));
         }
-        if (ImGui::Button(rec ? "\xE2\x97\x8F Stop GIF (Cmd+Shift+G)" : "Record GIF (Cmd+Shift+G)"))
+        if (ImGui::Button(rec ? kGifStopLabel : kGifStartLabel))
         {
             state.gif_recording = !state.gif_recording;
         }
@@ -132,9 +144,9 @@ void ImGuiRenderer::businessLogic(FrameState& state)
         ImGui::EndMainMenuBar();
     }
 
-    // Keyboard shortcut: Cmd+Shift+G toggles the same bool, so the header button
-    // highlights red automatically when driven purely by the shortcut.
-    if (ImGui::IsKeyChordPressed(ImGuiMod_Super | ImGuiMod_Shift | ImGuiKey_G))
+    // Keyboard shortcut toggles the same bool, so the header button highlights
+    // red automatically when driven purely by the shortcut.
+    if (ImGui::IsKeyChordPressed(kGifChord))
     {
         state.gif_recording = !state.gif_recording;
     }

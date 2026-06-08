@@ -90,7 +90,8 @@ if(APPLE)
     frontend/plugins/topology-plugin.cpp
     frontend/plugins/analysis-plugin.cpp
     frontend/metal_imgui_backend.mm
-    frontend/gif_recorder.mm
+    frontend/gif_recorder.cpp
+    frontend/gif_clipboard_mac.mm
   )
   target_link_libraries(metal_engine PRIVATE
     implot3d

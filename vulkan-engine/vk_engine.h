@@ -13,8 +13,9 @@
 
 #include "imgui-renderer.h"
 #include "vulkan_imgui_backend.h"
+#include "gif_recorder.h"
 
-struct DeletionQueue 
+struct DeletionQueue
 {
 	std::deque<std::function<void()>> deletors;
 
@@ -118,6 +119,17 @@ public:
 	std::vector<ComputeEffect> backgroundEffects;
 
 	int currentBackgroundEffect{ 0 };
+
+	// GIF recording. The recorder reacts to transitions of FrameState::gif_recording
+	// (toggled by the header button / shortcut in the renderer). While recording we
+	// copy the presented swapchain image into a host-visible staging buffer,
+	// throttled to _gifFps, and pipe BGRA frames into ffmpeg.
+	GifRecorder _gifRecorder;
+	bool _gifWasRecording{ false };
+	uint32_t _gifLastCaptureTicks{ 0 };
+	static constexpr int _gifFps = 15;
+	AllocatedBuffer _gifStagingBuffer{};
+	size_t _gifStagingCapacity{ 0 };
 	//initializes everything in the engine
 	void init();
 
@@ -152,4 +164,9 @@ private:
 	void init_sync_structures();
 
 	void init_imgui();
+
+	// Ensures _gifStagingBuffer is at least `needed` bytes of host-visible,
+	// persistently-mapped memory. Returns true if a buffer is ready to receive
+	// a readback of `needed` bytes.
+	bool ensure_gif_staging_buffer(size_t needed);
 };

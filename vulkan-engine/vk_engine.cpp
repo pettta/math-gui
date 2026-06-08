@@ -76,6 +76,19 @@ void VulkanEngine::cleanup()
 		//make sure the gpu has stopped doing its things
 		vkDeviceWaitIdle(_device);
 
+		// finalize any in-progress GIF and release the readback buffer before the
+		// allocator (destroyed by the deletion queue below) goes away.
+		if (_gifRecorder.isRecording())
+		{
+			_gifRecorder.stop();
+		}
+		if (_gifStagingBuffer.buffer != VK_NULL_HANDLE)
+		{
+			vmaDestroyBuffer(_allocator, _gifStagingBuffer.buffer, _gifStagingBuffer.allocation);
+			_gifStagingBuffer = {};
+			_gifStagingCapacity = 0;
+		}
+
 		_mainDeletionQueue.flush();
 		for (int i = 0; i < FRAME_OVERLAP; i++) {
 
@@ -242,8 +255,67 @@ void VulkanEngine::draw()
 		});
 	}
 
-	// set swapchain image layout to Present so we can draw it
-	vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	// --- GIF recording: react to start/stop, then (maybe) capture this frame ---
+	bool gifCaptureThisFrame = false;
+	if (_imguiRenderer)
+	{
+		ImGuiRenderer::FrameState& state = _imguiRenderer->frameState();
+		const bool wantRecording = state.gif_recording;
+		if (wantRecording && !_gifWasRecording)
+		{
+			_gifRecorder.start((int)_swapchainExtent.width, (int)_swapchainExtent.height, _gifFps);
+			state.gif_status = _gifRecorder.status();
+			if (!_gifRecorder.isRecording())
+			{
+				// start failed (e.g. ffmpeg missing) — don't leave the button stuck red
+				state.gif_recording = false;
+			}
+			_gifLastCaptureTicks = 0;
+		}
+		else if (!wantRecording && _gifWasRecording)
+		{
+			_gifRecorder.stop();
+			state.gif_status = _gifRecorder.status();
+		}
+		_gifWasRecording = state.gif_recording;
+
+		if (_gifRecorder.isRecording())
+		{
+			const uint32_t now = SDL_GetTicks();
+			if (_gifLastCaptureTicks == 0 || (now - _gifLastCaptureTicks) >= (uint32_t)(1000 / _gifFps))
+			{
+				_gifLastCaptureTicks = now;
+				gifCaptureThisFrame = ensure_gif_staging_buffer(
+					(size_t)_swapchainExtent.width * (size_t)_swapchainExtent.height * 4u);
+			}
+		}
+	}
+
+	if (gifCaptureThisFrame)
+	{
+		// Copy the rendered swapchain image into a host-visible buffer, then move
+		// it to PRESENT layout. The readback completes once _renderFence signals.
+		vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
+		VkBufferImageCopy region{};
+		region.bufferOffset = 0;
+		region.bufferRowLength = 0;   // tightly packed (== image width)
+		region.bufferImageHeight = 0; // tightly packed (== image height)
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.mipLevel = 0;
+		region.imageSubresource.baseArrayLayer = 0;
+		region.imageSubresource.layerCount = 1;
+		region.imageOffset = { 0, 0, 0 };
+		region.imageExtent = { _swapchainExtent.width, _swapchainExtent.height, 1 };
+		vkCmdCopyImageToBuffer(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, _gifStagingBuffer.buffer, 1, &region);
+
+		vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	}
+	else
+	{
+		// set swapchain image layout to Present so we can draw it
+		vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	}
 
 	//finalize the command buffer (we can no longer add commands, but it can now be executed)
 	VK_CHECK(vkEndCommandBuffer(cmd));
@@ -279,7 +351,17 @@ void VulkanEngine::draw()
 	presentInfo.pImageIndices = &swapchainImageIndex;
 
 	VkResult presentResult = vkQueuePresentKHR(_graphicsQueue, &presentInfo);
-	
+
+	if (gifCaptureThisFrame)
+	{
+		// Wait for this frame's GPU work (the image->buffer copy) to finish, then
+		// feed the BGRA pixels to ffmpeg. Throttled to _gifFps, so the extra stall
+		// only happens on captured frames.
+		VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
+		vmaInvalidateAllocation(_allocator, _gifStagingBuffer.allocation, 0, VK_WHOLE_SIZE);
+		_gifRecorder.addFrame(static_cast<const uint8_t*>(_gifStagingBuffer.info.pMappedData),
+			(int)_swapchainExtent.width, (int)_swapchainExtent.height);
+	}
 
 	//increase the number of frames drawn
 	_frameNumber++;
@@ -340,6 +422,8 @@ void VulkanEngine::rebuild_swapchain()
 		.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 		.set_desired_extent(_windowExtent.width, _windowExtent.height)
 		.add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+		// TRANSFER_SRC lets us copy the presented image back for GIF recording.
+		.add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
 		.build()
 		.value();
 
@@ -492,6 +576,8 @@ void VulkanEngine::create_swapchain(uint32_t width, uint32_t height)
 		.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 		.set_desired_extent(width, height)
 		.add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+		// TRANSFER_SRC lets us copy the presented image back for GIF recording.
+		.add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_SRC_BIT)
 		.build()
 		.value();
 
@@ -659,6 +745,45 @@ void VulkanEngine::init_imgui()
 	});
 }
 //< imgui_init
+
+bool VulkanEngine::ensure_gif_staging_buffer(size_t needed)
+{
+	if (needed == 0)
+	{
+		return false;
+	}
+	if (_gifStagingBuffer.buffer != VK_NULL_HANDLE && _gifStagingCapacity >= needed)
+	{
+		return true;
+	}
+
+	// Grow (or first-create) the host-visible, persistently-mapped readback buffer.
+	if (_gifStagingBuffer.buffer != VK_NULL_HANDLE)
+	{
+		vmaDestroyBuffer(_allocator, _gifStagingBuffer.buffer, _gifStagingBuffer.allocation);
+		_gifStagingBuffer = {};
+		_gifStagingCapacity = 0;
+	}
+
+	VkBufferCreateInfo bufferInfo{ .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	bufferInfo.size = needed;
+	bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	VmaAllocationCreateInfo vmaInfo{};
+	vmaInfo.usage = VMA_MEMORY_USAGE_AUTO;
+	vmaInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+
+	if (vmaCreateBuffer(_allocator, &bufferInfo, &vmaInfo,
+			&_gifStagingBuffer.buffer, &_gifStagingBuffer.allocation, &_gifStagingBuffer.info) != VK_SUCCESS)
+	{
+		_gifStagingBuffer = {};
+		_gifStagingCapacity = 0;
+		return false;
+	}
+
+	_gifStagingCapacity = needed;
+	return true;
+}
 
 void VulkanEngine::init_pipelines()
 {

@@ -5,9 +5,10 @@
 #include <string>
 
 // Records the app window to a GIF by piping raw BGRA frames into ffmpeg, then
-// copies the finished GIF to the macOS clipboard. macOS-only (implemented in
-// gif_recorder.mm). All ffmpeg/Cocoa specifics are hidden behind this interface
-// so it can be used from the platform-agnostic engine loop.
+// copies the finished GIF to the OS clipboard. The ffmpeg piping is portable
+// (implemented in gif_recorder.cpp); the clipboard step is delegated to a
+// platform hook (gif_platform::copyToClipboard) so the same recorder works for
+// the Metal (macOS) and Vulkan (Windows/Linux) engines.
 class GifRecorder {
 public:
     // Opens an ffmpeg pipe sized to width x height at the given fps. Returns
@@ -33,3 +34,11 @@ private:
     std::string outputPath_;
     std::string status_;
 };
+
+namespace gif_platform {
+// Copies the finished GIF at `path` to the OS clipboard. On success returns
+// true; either way writes a human-readable message into `status`. Implemented
+// per platform (gif_clipboard_mac.mm on macOS, gif_clipboard_other.cpp
+// elsewhere).
+bool copyToClipboard(const std::string& path, std::string& status);
+}

@@ -9,6 +9,8 @@ add_executable (vulkan_engine
   ../frontend/plugins/topology-plugin.cpp
   ../frontend/plugins/analysis-plugin.cpp
   ../frontend/vulkan_imgui_backend.cpp
+  ../frontend/gif_recorder.cpp
+  ../frontend/gif_clipboard_other.cpp
 )
 
 set_property(TARGET vulkan_engine PROPERTY CXX_STANDARD 20)
@@ -27,6 +29,11 @@ implot3d
 eigen
 Boost::headers
 )
+
+if(WIN32)
+  # CF_HDROP clipboard support in gif_clipboard_other.cpp.
+  target_link_libraries(vulkan_engine user32)
+endif()
 
 add_custom_command(TARGET vulkan_engine POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:vulkan_engine> $<TARGET_FILE_DIR:vulkan_engine>
