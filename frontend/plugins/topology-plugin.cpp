@@ -750,7 +750,6 @@ void RenderTopologyWindow(ImGuiRenderer::FrameState& state)
     }
 
 
-
     if (ImGui::Button("Close Me"))
         state.show_topology_window = false;
     ImGui::End();
