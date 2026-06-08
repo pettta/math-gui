@@ -7,6 +7,7 @@ add_executable (vulkan_engine
   ../frontend/imgui-renderer.cpp
   ../frontend/plugins/probability-plugin.cpp
   ../frontend/plugins/topology-plugin.cpp
+  ../frontend/plugins/analysis-plugin.cpp
   ../frontend/vulkan_imgui_backend.cpp
 )
 

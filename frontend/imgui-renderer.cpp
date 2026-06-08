@@ -1,7 +1,8 @@
 #include "imgui-renderer.h"
 
 #include "plugins/probability-plugin.h"
-#include "plugins/topology-plugin.h" 
+#include "plugins/topology-plugin.h"
+#include "plugins/analysis-plugin.h"
 
 #include <stdexcept>
 #include <array>
@@ -118,7 +119,8 @@ void ImGuiRenderer::businessLogic(FrameState& state)
         ImGui::Checkbox("Demo Window", &state.show_demo_window);      
         ImGui::Checkbox("Linear Algebra Window", &state.show_linear_algebra_window);
         ImGui::Checkbox("Probability Window", &state.show_probability_window);
-        ImGui::Checkbox("Topology Window", &state.show_topology_window); 
+        ImGui::Checkbox("Topology Window", &state.show_topology_window);
+        ImGui::Checkbox("Analysis Window", &state.show_analysis_window);
         ImGui::ColorEdit3("clear color", state.clear_color);          // Edit 3 floats representing a color
 
         ImGuiIO& io = ImGui::GetIO(); 
@@ -144,6 +146,11 @@ void ImGuiRenderer::businessLogic(FrameState& state)
     if (state.show_probability_window)
     {
         math_gui::plugins::RenderProbabilityWindow(state);
+    }
+
+    if (state.show_analysis_window)
+    {
+        math_gui::plugins::RenderAnalysisWindow(state);
     }
 }
 

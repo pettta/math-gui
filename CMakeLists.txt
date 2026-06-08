@@ -88,6 +88,7 @@ if(APPLE)
     frontend/imgui-renderer.cpp
     frontend/plugins/probability-plugin.cpp
     frontend/plugins/topology-plugin.cpp
+    frontend/plugins/analysis-plugin.cpp
     frontend/metal_imgui_backend.mm
   )
   target_link_libraries(metal_engine PRIVATE
