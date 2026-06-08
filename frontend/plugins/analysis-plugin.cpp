@@ -43,7 +43,7 @@ void RenderAnalysisWindow(ImGuiRenderer::FrameState& state)
                 double sum = 0.0;
                 double bn = b;                            // b^1
                 double an = static_cast<double>(a);       // a^1
-                for (int n = 1; n <= 100; ++n)            // hard cap on number of terms
+                for (int n = 1; n <= 10000; ++n)            // hard cap on number of terms
                 {
                     if (!std::isfinite(an))               // a^n overflowed -> cos(a^n x) is NaN
                     {
