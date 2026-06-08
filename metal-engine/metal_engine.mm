@@ -11,6 +11,7 @@
 #include "imgui_impl_sdl2.h"
 #include "../frontend/imgui-renderer.h"
 #include "../frontend/metal_imgui_backend.h"
+#include "../frontend/gif_recorder.h"
 #include <stdio.h>
 #include <SDL.h>
 
@@ -67,6 +68,7 @@ int main(int, char**)
     // Setup Platform/Renderer backends
     CAMetalLayer* layer = (__bridge CAMetalLayer*)SDL_RenderGetMetalLayer(renderer);
     layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+    layer.framebufferOnly = NO; // allow reading back the drawable for GIF capture
     MetalImguiBackend imguiBackend(layer, window);
     ImGuiRenderer imguiRenderer(imguiBackend);
     imguiRenderer.initialize();
@@ -74,6 +76,16 @@ int main(int, char**)
 
     id<MTLCommandQueue> commandQueue = [layer.device newCommandQueue];
     MTLRenderPassDescriptor* renderPassDescriptor = [MTLRenderPassDescriptor new];
+
+    // GIF recording state. The recorder reacts to transitions of state.gif_recording
+    // (toggled by the header button / Cmd+Shift+G in the renderer). While recording we
+    // blit the drawable into a reusable staging buffer, throttled to kFps.
+    GifRecorder recorder;
+    bool wasRecording = false;
+    const int kFps = 15;
+    uint32_t lastCaptureTicks = 0;
+    id<MTLBuffer> stagingBuffer = nullptr;
+    NSUInteger stagingCapacity = 0;
 
     // Main loop
     bool done = false;
@@ -121,12 +133,71 @@ int main(int, char**)
             [renderEncoder popDebugGroup];
             [renderEncoder endEncoding];
 
+            // --- GIF recording: react to start/stop, then capture this frame ---
+            bool wantRecording = state.gif_recording;
+            if (wantRecording && !wasRecording)
+            {
+                recorder.start(width, height, kFps);
+                state.gif_status = recorder.status();
+                if (!recorder.isRecording())
+                {
+                    // start failed (e.g. ffmpeg missing) — don't leave the button stuck red
+                    state.gif_recording = false;
+                }
+                lastCaptureTicks = 0;
+            }
+            else if (!wantRecording && wasRecording)
+            {
+                recorder.stop();
+                state.gif_status = recorder.status();
+            }
+            wasRecording = state.gif_recording;
+
+            bool capturedThisFrame = false;
+            if (recorder.isRecording())
+            {
+                uint32_t now = SDL_GetTicks();
+                if (lastCaptureTicks == 0 || (now - lastCaptureTicks) >= (uint32_t)(1000 / kFps))
+                {
+                    lastCaptureTicks = now;
+                    NSUInteger needed = (NSUInteger)width * (NSUInteger)height * 4u;
+                    if (!stagingBuffer || stagingCapacity < needed)
+                    {
+                        stagingBuffer = [layer.device newBufferWithLength:needed
+                                                                 options:MTLResourceStorageModeShared];
+                        stagingCapacity = needed;
+                    }
+                    id<MTLBlitCommandEncoder> blit = [commandBuffer blitCommandEncoder];
+                    [blit copyFromTexture:drawable.texture
+                              sourceSlice:0
+                              sourceLevel:0
+                             sourceOrigin:MTLOriginMake(0, 0, 0)
+                               sourceSize:MTLSizeMake(width, height, 1)
+                                 toBuffer:stagingBuffer
+                        destinationOffset:0
+                   destinationBytesPerRow:(NSUInteger)width * 4u
+                 destinationBytesPerImage:needed];
+                    [blit endEncoding];
+                    capturedThisFrame = true;
+                }
+            }
+
             [commandBuffer presentDrawable:drawable];
             [commandBuffer commit];
+
+            if (capturedThisFrame)
+            {
+                [commandBuffer waitUntilCompleted];
+                recorder.addFrame((const uint8_t*)stagingBuffer.contents, width, height);
+            }
         }
     }
 
     // Cleanup
+    if (recorder.isRecording())
+    {
+        recorder.stop();
+    }
     imguiRenderer.shutdown();
 
     SDL_DestroyRenderer(renderer);

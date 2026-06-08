@@ -104,6 +104,41 @@ void ImGuiRenderer::beginFrame()
 
 void ImGuiRenderer::businessLogic(FrameState& state)
 {
+    // 0. Header bar with the GIF recorder. The button and the Cmd+Shift+G chord
+    //    both just flip state.gif_recording; the macOS engine reacts to the
+    //    transition (start/stop ffmpeg) and writes state.gif_status back here.
+    if (ImGui::BeginMainMenuBar())
+    {
+        const bool rec = state.gif_recording;
+        if (rec)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.15f, 0.15f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.95f, 0.25f, 0.25f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.75f, 0.10f, 0.10f, 1.0f));
+        }
+        if (ImGui::Button(rec ? "\xE2\x97\x8F Stop GIF (Cmd+Shift+G)" : "Record GIF (Cmd+Shift+G)"))
+        {
+            state.gif_recording = !state.gif_recording;
+        }
+        if (rec)
+        {
+            ImGui::PopStyleColor(3);
+        }
+        if (!state.gif_status.empty())
+        {
+            ImGui::SameLine();
+            ImGui::TextUnformatted(state.gif_status.c_str());
+        }
+        ImGui::EndMainMenuBar();
+    }
+
+    // Keyboard shortcut: Cmd+Shift+G toggles the same bool, so the header button
+    // highlights red automatically when driven purely by the shortcut.
+    if (ImGui::IsKeyChordPressed(ImGuiMod_Super | ImGuiMod_Shift | ImGuiKey_G))
+    {
+        state.gif_recording = !state.gif_recording;
+    }
+
     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
     if (state.show_demo_window){
         ImGui::ShowDemoWindow(&state.show_demo_window);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <string>
 
 #include "imgui.h"
 #include "implot.h"
@@ -31,6 +32,11 @@ public:
         bool show_topology_window = false;
         bool show_analysis_window = false;
         float clear_color[4] = {0.45f, 0.55f, 0.60f, 1.00f};
+
+        // GIF recorder: desired state toggled by the header button / Cmd+Shift+G.
+        // The macOS engine reacts to transitions and writes gif_status back for display.
+        bool gif_recording = false;
+        std::string gif_status;
     };
 
     void initialize();
