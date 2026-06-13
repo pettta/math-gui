@@ -18,8 +18,10 @@ void RenderAnalysisWindow(ImGuiRenderer::FrameState& state)
 
             static float b_param = 0.5f;   // 0 < b < 1
             static int   a_param = 13;     // integer > 1; default ab = 6.5 > 5.712
+            static int   n_samples = 100;  // number of series terms summed (truncation N)
 
             ImGui::TextUnformatted("W(x) = sum_{n=1}^{inf} b^n cos(a^n x)");
+            ImGui::SliderInt("n (series terms)", &n_samples, 1, 500, "%d", ImGuiSliderFlags_AlwaysClamp);
             ImGui::SliderFloat("b (0 < b < 1)", &b_param, 0.01f, 0.99f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
             ImGui::SliderInt("a (integer > 1)", &a_param, 2, 20, "%d", ImGuiSliderFlags_AlwaysClamp);
 
@@ -33,17 +35,21 @@ void RenderAnalysisWindow(ImGuiRenderer::FrameState& state)
                 ab, condition_met ? ">" : "<=", threshold,
                 condition_met ? "condition satisfied" : "condition NOT satisfied");
 
+            const double err_bound = std::pow(static_cast<double>(b_param), n_samples + 1)
+                                   / (1.0 - static_cast<double>(b_param));
+            ImGui::Text("pointwise error upper bound:  b^(n+1)/(1-b) = %.3e", err_bound);
+
             ImGui::Separator();
 
             constexpr int kSamples = 10000;
             static double wx_x[kSamples];
             static double wx_y[kSamples];
 
-            const auto weierstrass = [](double x, double b, int a) {
+            const auto weierstrass = [](double x, double b, int a, int terms) {
                 double sum = 0.0;
                 double bn = b;                            // b^1
                 double an = static_cast<double>(a);       // a^1
-                for (int n = 1; n <= 100; ++n)            // hard cap on number of terms
+                for (int n = 1; n <= terms; ++n)          // truncate the series at N terms
                 {
                     if (!std::isfinite(an))               // a^n overflowed -> cos(a^n x) is NaN
                     {
@@ -66,7 +72,7 @@ void RenderAnalysisWindow(ImGuiRenderer::FrameState& state)
             {
                 const double x = x_lo + (x_hi - x_lo) * static_cast<double>(i) / static_cast<double>(kSamples - 1);
                 wx_x[i] = x;
-                wx_y[i] = weierstrass(x, static_cast<double>(b_param), a_param);
+                wx_y[i] = weierstrass(x, static_cast<double>(b_param), a_param, n_samples);
             }
 
             ImPlot::SetNextAxesLimits(-kPi, kPi, -2.0, 2.0, ImPlotCond_Once);
